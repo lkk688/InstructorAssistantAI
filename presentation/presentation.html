@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Physical AI and LLMs in Autonomous Driving</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/theme/white.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/highlight/monokai.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 {
+            color: #2c3e50;
+        }
+        .reveal .slides section {
+            text-align: left;
+        }
+        .reveal .slides section.center {
+            text-align: center;
+        }
+        .reveal .progress {
+            color: #3498db;
+        }
+        .reveal .controls {
+            color: #3498db;
+        }
+        .highlight {
+            background-color: #f39c12;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .mermaid {
+            text-align: center;
+        }
+        .reveal pre code {
+            max-height: 400px;
+        }
+        .reveal .slides section img {
+            border: none;
+            box-shadow: none;
+            background: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Title Slide -->
+            <section class="center">
+                <h1>Physical AI and Large Language Models</h1>
+                <h2>in Autonomous Driving</h2>
+                <p>
+                    <small>A Comprehensive Technical Overview</small>
+                </p>
+            </section>
+
+            <!-- Table of Contents -->
+            <section>
+                <h2>Agenda</h2>
+                <ol>
+                    <li>Introduction & Convergence</li>
+                    <li>Why Physical AI & LLMs Matter</li>
+                    <li>Current Solutions Overview</li>
+                    <li>Tesla's Architecture Case Study</li>
+                    <li>Localization and Mapping</li>
+                    <li>Vision-Language Models</li>
+                    <li>3D Scene Reconstruction</li>
+                    <li>Multimodal Sensor Fusion</li>
+                    <li>End-to-End Transformers</li>
+                    <li>Vision-Language-Action Models</li>
+                    <li>Future Directions</li>
+                </ol>
+            </section>
+
+            <!-- Introduction Section -->
+            <section>
+                <section>
+                    <h2>The Convergence of Physical AI and LLMs</h2>
+                    <p>The autonomous driving landscape is undergoing a <span class="highlight">revolutionary transformation</span> through the integration of:</p>
+                    <ul>
+                        <li><strong>Physical AI</strong>: AI systems that perceive and interact with the physical world</li>
+                        <li><strong>Large Language Models</strong>: Advanced reasoning and natural language capabilities</li>
+                    </ul>
+                    <p>This convergence creates intelligent, adaptive frameworks that can understand, reason, and interact with the physical world.</p>
+                </section>
+
+                <section>
+                    <h3>From Rule-Based to Intelligent Systems</h3>
+                    <div style="display: flex; justify-content: space-between;">
+                        <div style="width: 45%;">
+                            <h4>Traditional Systems</h4>
+                            <ul>
+                                <li>Pre-programmed rules</li>
+                                <li>Pattern recognition</li>
+                                <li>Limited adaptability</li>
+                                <li>Rigid responses</li>
+                            </ul>
+                        </div>
+                        <div style="width: 45%;">
+                            <h4>Physical AI + LLMs</h4>
+                            <ul>
+                                <li>Contextual understanding</li>
+                                <li>Natural language interaction</li>
+                                <li>Adaptive learning</li>
+                                <li>Nuanced decision making</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Why Physical AI & LLMs Matter -->
+            <section>
+                <section>
+                    <h2>Why Physical AI & LLMs are Crucial</h2>
+                    <div class="center">
+                        <h3>5 Key Advantages</h3>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>1. Contextual Understanding & Reasoning</h3>
+                    <ul>
+                        <li><strong>Natural Language Instructions</strong>
+                            <ul><li>"Take me to the hospital, it's an emergency"</li></ul>
+                        </li>
+                        <li><strong>Complex Scenarios</strong>
+                            <ul><li>Construction zones, emergency vehicles, unusual patterns</li></ul>
+                        </li>
+                        <li><strong>Human-AI Interaction</strong>
+                            <ul><li>Natural communication about preferences and concerns</li></ul>
+                        </li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>2. Multimodal Perception & Integration</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>Sensor Modalities:</h4>
+                            <ul>
+                                <li>Visual Cameras (RGB, IR, depth)</li>
+                                <li>LiDAR (3D point clouds)</li>
+                                <li>Radar (weather-resistant)</li>
+                                <li>Audio (environmental + passenger)</li>
+                                <li>GPS & IMU (location + motion)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Integration Benefits:</h4>
+                            <ul>
+                                <li>Unified environment understanding</li>
+                                <li>Contextual interpretation</li>
+                                <li>Robust perception</li>
+                                <li>Enhanced decision making</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>3. Adaptive Learning & Generalization</h3>
+                    <ul>
+                        <li><strong>Few-shot Learning</strong>: Adapt to new conditions with minimal examples</li>
+                        <li><strong>Transfer Learning</strong>: Apply knowledge across domains</li>
+                        <li><strong>Continuous Improvement</strong>: Learn from real-world experiences</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>4. Safety & Explainability</h3>
+                    <ul>
+                        <li><strong>Explain Decisions</strong>
+                            <ul><li>"I'm slowing down because I detected a child's ball rolling into the street"</li></ul>
+                        </li>
+                        <li><strong>Predict Intentions</strong>: Understanding behavior patterns</li>
+                        <li><strong>Handle Edge Cases</strong>: Reasoning through unprecedented scenarios</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>5. Human-Centric Design</h3>
+                    <ul>
+                        <li><strong>Natural Communication</strong>: Voice-based passenger interaction</li>
+                        <li><strong>Personalization</strong>: Learning individual preferences</li>
+                        <li><strong>Accessibility</strong>: Supporting diverse user needs</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Current Solutions -->
+            <section>
+                <section>
+                    <h2>Current Solutions in Autonomous Driving</h2>
+                    <p>Evolution through several technological approaches, each building upon previous innovations.</p>
+                </section>
+
+                <section>
+                    <h3>The "4 Pillars" Architecture</h3>
+                    <p>Traditional modular, linear system with sequential processing:</p>
+                    <div class="center">
+                        <pre><code>Sensors → Perception → Localization → Planning → Control → Actuation</code></pre>
+                    </div>
+                    <img src="docs/figures/autonomous4pillars.png" alt="4 Pillars Architecture" style="width: 80%; margin: 20px auto;">
+                </section>
+
+                <section>
+                    <h3>The Four Pillars Explained</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>1. Perception Pillar</h4>
+                            <ul>
+                                <li>Object detection & classification</li>
+                                <li>Lane detection & road segmentation</li>
+                                <li>Traffic sign recognition</li>
+                                <li>Depth estimation & 3D reconstruction</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>2. Localization Pillar</h4>
+                            <ul>
+                                <li>GPS + IMU integration</li>
+                                <li>SLAM (Simultaneous Localization and Mapping)</li>
+                                <li>HD map matching</li>
+                                <li>Sensor fusion for positioning</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>The Four Pillars (Continued)</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>3. Planning Pillar</h4>
+                            <ul>
+                                <li>Route planning (global)</li>
+                                <li>Behavior planning (tactical)</li>
+                                <li>Motion planning (local)</li>
+                                <li>Trajectory optimization</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>4. Control Pillar</h4>
+                            <ul>
+                                <li>Longitudinal control (speed)</li>
+                                <li>Lateral control (steering)</li>
+                                <li>PID controllers</li>
+                                <li>Model Predictive Control (MPC)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Industry Variations</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>Waymo Approach</h4>
+                            <ul>
+                                <li>Heavy reliance on LiDAR</li>
+                                <li>Detailed HD maps</li>
+                                <li>Geofenced operations</li>
+                                <li>Rule-based decision making</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Baidu Apollo</h4>
+                            <ul>
+                                <li>Open-source platform</li>
+                                <li>Modular architecture</li>
+                                <li>Cloud-based HD mapping</li>
+                                <li>Simulation-first development</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Advantages & Limitations</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>✅ Advantages</h4>
+                            <ul>
+                                <li>Interpretable and debuggable</li>
+                                <li>Modular development</li>
+                                <li>Proven in controlled environments</li>
+                                <li>Safety through redundancy</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>❌ Limitations</h4>
+                            <ul>
+                                <li>Error propagation through pipeline</li>
+                                <li>Limited adaptability</li>
+                                <li>High computational overhead</li>
+                                <li>Difficulty handling edge cases</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Open Source Implementations</h3>
+                    <ul>
+                        <li><strong>Apollo by Baidu</strong>: Complete autonomous driving platform</li>
+                        <li><strong>Autoware</strong>: Open-source software for autonomous driving</li>
+                        <li><strong>OpenPilot by Comma.ai</strong>: Open source driver assistance system</li>
+                        <li><strong>CARLA Simulator</strong>: Open-source simulator for autonomous driving research</li>
+                        <li><strong>AirSim</strong>: Simulator for drones, cars and more</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Tesla Case Study -->
+            <section>
+                <section>
+                    <h2>Tesla's Latest Model: A Case Study</h2>
+                    <p>Tesla's Full Self-Driving (FSD) system represents one of the most advanced implementations of neural network-based autonomous driving.</p>
+                </section>
+
+                <section>
+                    <h3>Evolution from Modular to End-to-End</h3>
+                    <p>Tesla's system has undergone significant architectural transformation:</p>
+                    <ul>
+                        <li><strong>2019-2020</strong>: HydraNet (Multi-task learning)</li>
+                        <li><strong>2021</strong>: Combined Perception + Planning</li>
+                        <li><strong>2022</strong>: Addition of Occupancy Networks</li>
+                        <li><strong>2023+</strong>: Full End-to-End Learning (FSD v12)</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>Key Architectural Differences</h3>
+                    <table style="width: 100%; font-size: 0.8em;">
+                        <thead>
+                            <tr>
+                                <th>Aspect</th>
+                                <th>Modular Architecture</th>
+                                <th>End-to-End Architecture</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Data Flow</strong></td>
+                                <td>Sequential pipeline</td>
+                                <td>Direct sensor-to-action</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Optimization</strong></td>
+                                <td>Component-wise</td>
+                                <td>Joint optimization</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Error Handling</strong></td>
+                                <td>Error propagation</td>
+                                <td>Global error correction</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Adaptability</strong></td>
+                                <td>Limited</td>
+                                <td>High adaptability</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section>
+                    <h3>Vision Transformer (ViT) Architecture</h3>
+                    <p>Tesla's perception system leverages Vision Transformers for:</p>
+                    <ul>
+                        <li><strong>Global Context</strong>: Processes entire image patches simultaneously</li>
+                        <li><strong>Multi-Camera Fusion</strong>: Attention mechanisms handle relationships between camera views</li>
+                        <li><strong>Temporal Understanding</strong>: Self-attention across time enables motion prediction</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>Occupancy Networks</h3>
+                    <p>Enhanced perception with 3D occupancy prediction:</p>
+                    <ul>
+                        <li>Converts image space into voxels with free/occupied classification</li>
+                        <li>Provides dense spatial understanding for static and dynamic objects</li>
+                        <li>Enhances context understanding in 3D space</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Future Directions -->
+            <section>
+                <section>
+                    <h2>Future Research Directions</h2>
+                    <p>The convergence of Physical AI and LLMs opens exciting possibilities for autonomous driving.</p>
+                </section>
+
+                <section>
+                    <h3>Emerging Trends</h3>
+                    <ul>
+                        <li><strong>Multimodal Foundation Models</strong>: Unified models handling vision, language, and action</li>
+                        <li><strong>Embodied AI</strong>: AI systems that understand physical world interactions</li>
+                        <li><strong>Causal Reasoning</strong>: Understanding cause-and-effect relationships in driving scenarios</li>
+                        <li><strong>Few-Shot Adaptation</strong>: Rapid adaptation to new environments and conditions</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>Technical Challenges</h3>
+                    <ul>
+                        <li><strong>Real-time Processing</strong>: Balancing model complexity with latency requirements</li>
+                        <li><strong>Safety Guarantees</strong>: Ensuring reliable performance in safety-critical scenarios</li>
+                        <li><strong>Data Efficiency</strong>: Learning from limited labeled data</li>
+                        <li><strong>Interpretability</strong>: Understanding model decisions for regulatory compliance</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h3>Research Opportunities</h3>
+                    <ul>
+                        <li><strong>Sim-to-Real Transfer</strong>: Bridging the gap between simulation and real-world performance</li>
+                        <li><strong>Human-AI Collaboration</strong>: Seamless handover between human and AI control</li>
+                        <li><strong>Ethical AI</strong>: Addressing bias and fairness in autonomous decision making</li>
+                        <li><strong>Federated Learning</strong>: Privacy-preserving learning across vehicle fleets</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Conclusion -->
+            <section class="center">
+                <h2>Conclusion</h2>
+                <p>The integration of <span class="highlight">Physical AI</span> and <span class="highlight">Large Language Models</span> represents a transformative approach to autonomous driving.</p>
+                <br>
+                <p>Key takeaways:</p>
+                <ul style="text-align: left; display: inline-block;">
+                    <li>Evolution from rule-based to intelligent, adaptive systems</li>
+                    <li>Multimodal perception enables richer understanding</li>
+                    <li>End-to-end learning shows promising results</li>
+                    <li>Human-centric design improves accessibility and usability</li>
+                    <li>Significant research opportunities remain</li>
+                </ul>
+            </section>
+
+            <!-- Thank You -->
+            <section class="center">
+                <h1>Thank You</h1>
+                <h3>Questions & Discussion</h3>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/highlight/highlight.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/math/math.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            transition: 'slide',
+            transitionSpeed: 'default',
+            backgroundTransition: 'fade',
+            controls: true,
+            progress: true,
+            center: false,
+            touch: true,
+            loop: false,
+            rtl: false,
+            navigationMode: 'default',
+            shuffle: false,
+            fragments: true,
+            fragmentInURL: false,
+            embedded: false,
+            help: true,
+            showNotes: false,
+            autoPlayMedia: null,
+            preloadIframes: null,
+            autoSlide: 0,
+            autoSlideStoppable: true,
+            mouseWheel: false,
+            hideInactiveCursor: true,
+            hideCursorTime: 5000,
+            hideAddressBar: true,
+            previewLinks: false,
+            viewDistance: 3,
+            mobileViewDistance: 2,
+            plugins: [ RevealMarkdown, RevealHighlight, RevealNotes, RevealMath.KaTeX ]
+        });
+    </script>
+</body>
+</html>

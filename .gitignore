@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+*/node_modules/
+
+canvas/cmpe257_exam_questions.md
+canvas/cmpe257review_final.md

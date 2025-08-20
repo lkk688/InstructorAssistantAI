@@ -1,0 +1,93 @@
+# Pandoc reveal.js Configuration
+# Optimized for Physical AI and LLMs in Autonomous Driving presentation
+
+# Metadata
+title: "Physical AI and Large Language Models in Autonomous Driving"
+author: "AI Research Team"
+date: "2024"
+institute: "Autonomous Driving Research"
+
+# reveal.js settings
+revealjs-url: "https://unpkg.com/reveal.js@4.3.1/"
+theme: "black"
+transition: "slide"
+backgroundTransition: "fade"
+hash: true
+controls: true
+progress: true
+center: true
+touch: true
+loop: false
+rtl: false
+navigationMode: "default"
+previewLinks: false
+hideAddressBar: true
+width: 1280
+height: 720
+margin: 0.1
+minScale: 0.2
+maxScale: 1.5
+
+# Slide configuration
+slide-level: 2
+incremental: false
+
+# Code highlighting
+highlight-style: "github"
+
+# Math support
+mathjax: true
+
+# Custom CSS
+css:
+  - |
+    .reveal h1, .reveal h2, .reveal h3 {
+      color: #42A5F5;
+      text-transform: none;
+    }
+    .reveal .slides section .fragment.highlight-red {
+      color: #ff6b6b;
+    }
+    .reveal .slides section .fragment.highlight-green {
+      color: #51cf66;
+    }
+    .reveal .slides section .fragment.highlight-blue {
+      color: #339af0;
+    }
+    .reveal pre code {
+      max-height: 500px;
+      font-size: 0.8em;
+    }
+    .reveal table {
+      font-size: 0.7em;
+    }
+    .reveal blockquote {
+      background: rgba(255,255,255,0.1);
+      border-left: 5px solid #42A5F5;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .reveal .progress {
+      color: #42A5F5;
+    }
+    .reveal .controls {
+      color: #42A5F5;
+    }
+    .small-text {
+      font-size: 0.8em;
+    }
+    .very-small-text {
+      font-size: 0.6em;
+    }
+    .center-image {
+      display: block;
+      margin: 0 auto;
+      max-width: 80%;
+      max-height: 60vh;
+    }
+
+# Variables for customization
+variables:
+  fontsize: "17pt"
+  mainfont: "Arial"
+  monofont: "Courier New"

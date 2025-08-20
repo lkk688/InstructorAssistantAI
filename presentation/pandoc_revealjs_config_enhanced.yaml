@@ -1,0 +1,307 @@
+# Enhanced Pandoc reveal.js Configuration
+# Designed to work with PPTX-extracted content and structured presentations
+# Based on analysis of PowerPoint organization patterns
+
+# Metadata (can be overridden by command line or markdown frontmatter)
+title: "Enhanced Presentation"
+author: "Presentation Author"
+date: "2024"
+institute: "Research Institute"
+subtitle: "Generated from structured content"
+
+# reveal.js core settings
+revealjs-url: "https://unpkg.com/reveal.js@4.3.1/"
+theme: "black"  # Options: black, white, league, beige, sky, night, serif, simple, solarized
+transition: "slide"  # Options: none, fade, slide, convex, concave, zoom
+backgroundTransition: "fade"
+hash: true
+controls: true
+progress: true
+center: true
+touch: true
+loop: false
+rtl: false
+navigationMode: "default"
+previewLinks: false
+hideAddressBar: true
+
+# Display settings optimized for content-rich presentations
+width: 1280
+height: 720
+margin: 0.08  # Reduced margin for more content space
+minScale: 0.15
+maxScale: 2.0
+
+# Slide structure settings
+slide-level: 3  # Matches ### headers from PPTX extraction
+incremental: false  # Can be overridden per slide
+
+# Content processing
+code-block-font-size: "0.7em"
+highlight-style: "github"
+
+# Math and formula support
+mathjax: true
+html-math-method: "mathjax"
+
+# Speaker notes support (extracted from PPTX notes)
+speaker-notes: true
+
+# Custom CSS for PPTX-style content
+css:
+  - |
+    /* Enhanced styling for PPTX-extracted content */
+    .reveal {
+      font-family: "Segoe UI", "Arial", sans-serif;
+    }
+    
+    /* Header styling matching PowerPoint hierarchy */
+    .reveal h1 {
+      color: #2E86AB;
+      font-size: 2.5em;
+      text-transform: none;
+      margin-bottom: 0.5em;
+      border-bottom: 3px solid #2E86AB;
+      padding-bottom: 0.2em;
+    }
+    
+    .reveal h2 {
+      color: #A23B72;
+      font-size: 2.0em;
+      text-transform: none;
+      margin-bottom: 0.4em;
+    }
+    
+    .reveal h3 {
+      color: #F18F01;
+      font-size: 1.6em;
+      text-transform: none;
+      margin-bottom: 0.3em;
+    }
+    
+    /* Content styling */
+    .reveal p {
+      text-align: left;
+      margin-bottom: 0.8em;
+      line-height: 1.4;
+    }
+    
+    /* List styling (common in PowerPoint) */
+    .reveal ul, .reveal ol {
+      text-align: left;
+      margin-left: 1em;
+    }
+    
+    .reveal li {
+      margin-bottom: 0.5em;
+    }
+    
+    /* Table styling (extracted from PPTX tables) */
+    .reveal table {
+      font-size: 0.75em;
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em auto;
+    }
+    
+    .reveal table th {
+      background-color: #2E86AB;
+      color: white;
+      padding: 0.8em;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .reveal table td {
+      padding: 0.6em;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    
+    .reveal table tr:nth-child(even) {
+      background-color: rgba(255,255,255,0.1);
+    }
+    
+    /* Code blocks */
+    .reveal pre {
+      width: 100%;
+      margin: 1em auto;
+    }
+    
+    .reveal pre code {
+      max-height: 500px;
+      font-size: 0.75em;
+      line-height: 1.3;
+      padding: 1em;
+      border-radius: 8px;
+    }
+    
+    /* Blockquotes and callouts */
+    .reveal blockquote {
+      background: rgba(46, 134, 171, 0.2);
+      border-left: 5px solid #2E86AB;
+      padding: 1em;
+      margin: 1em 0;
+      font-style: italic;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    /* Image styling (for [Image] placeholders and actual images) */
+    .reveal img {
+      max-width: 85%;
+      max-height: 60vh;
+      margin: 0.5em auto;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .image-placeholder {
+      background: rgba(255,255,255,0.1);
+      border: 2px dashed #666;
+      padding: 2em;
+      text-align: center;
+      color: #999;
+      border-radius: 8px;
+      margin: 1em 0;
+    }
+    
+    /* Speaker notes styling */
+    .reveal .speaker-notes {
+      background: rgba(162, 59, 114, 0.2);
+      border-left: 4px solid #A23B72;
+      padding: 1em;
+      margin: 1em 0;
+      font-size: 0.8em;
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .reveal .speaker-notes::before {
+      content: "📝 Speaker Notes: ";
+      font-weight: bold;
+      color: #A23B72;
+    }
+    
+    /* Progress and controls */
+    .reveal .progress {
+      color: #2E86AB;
+    }
+    
+    .reveal .controls {
+      color: #2E86AB;
+    }
+    
+    /* Fragment animations */
+    .reveal .fragment.highlight-red {
+      color: #E74C3C;
+    }
+    
+    .reveal .fragment.highlight-green {
+      color: #27AE60;
+    }
+    
+    .reveal .fragment.highlight-blue {
+      color: #3498DB;
+    }
+    
+    .reveal .fragment.highlight-yellow {
+      color: #F1C40F;
+    }
+    
+    /* Utility classes for content organization */
+    .two-column {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    
+    .two-column > div {
+      width: 48%;
+    }
+    
+    .small-text {
+      font-size: 0.8em;
+    }
+    
+    .very-small-text {
+      font-size: 0.65em;
+    }
+    
+    .large-text {
+      font-size: 1.2em;
+    }
+    
+    .center-text {
+      text-align: center;
+    }
+    
+    .left-text {
+      text-align: left;
+    }
+    
+    .right-text {
+      text-align: right;
+    }
+    
+    /* Slide numbering */
+    .reveal .slide-number {
+      color: #2E86AB;
+      font-size: 0.8em;
+    }
+    
+    /* Title slide specific styling */
+    .reveal .title-slide h1 {
+      font-size: 3em;
+      margin-bottom: 0.5em;
+    }
+    
+    .reveal .title-slide .subtitle {
+      font-size: 1.5em;
+      color: #A23B72;
+      margin-bottom: 1em;
+    }
+    
+    .reveal .title-slide .author {
+      font-size: 1.2em;
+      margin-bottom: 0.5em;
+    }
+    
+    .reveal .title-slide .date {
+      font-size: 1em;
+      color: #666;
+    }
+
+# Variables for easy customization
+variables:
+  fontsize: "18pt"
+  mainfont: "Segoe UI"
+  monofont: "Consolas"
+  linkcolor: "#2E86AB"
+  urlcolor: "#2E86AB"
+  toccolor: "#2E86AB"
+
+# Plugins and extensions
+revealjs-plugins:
+  - notes
+  - search
+  - zoom
+  - highlight
+
+# Additional pandoc options for better PPTX content processing
+from: markdown+smart+emoji
+to: revealjs
+standalone: true
+self-contained: false
+
+# Filter settings for processing extracted content
+filters:
+  - pandoc-crossref  # For figure and table references
+
+# Metadata for generated presentations
+keywords:
+  - "presentation"
+  - "reveal.js"
+  - "pandoc"
+  - "pptx-extracted"
+
+lang: "en"
+direction: "ltr"

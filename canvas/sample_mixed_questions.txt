@@ -1,0 +1,29 @@
+Q: What is the capital of France?
+A) London
+B) Berlin
+C) Paris
+D) Madrid
+Answer: C
+
+Q: Python is an interpreted programming language.
+Type: true_false
+Answer: True
+
+Q: The Earth is flat.
+Type: true_false
+Answer: False
+
+Q: What are the main benefits of using version control systems?
+Type: short_answer
+Answer: Track changes, collaborate with others, maintain history, backup code
+
+Q: Explain the concept of machine learning and provide examples of its applications in modern technology.
+Type: essay
+Answer: Machine learning is a subset of artificial intelligence that enables computers to learn and make decisions from data without being explicitly programmed. Applications include recommendation systems, image recognition, natural language processing, and autonomous vehicles.
+
+Q: Which of the following is NOT a Python data type?
+A) List
+B) Dictionary
+C) Array
+D) Tuple
+Answer: C

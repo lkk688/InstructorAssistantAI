@@ -1,0 +1,118 @@
+/* Print-optimized CSS for exam papers */
+body {
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.4;
+    margin: 0.75in;
+    color: #000;
+}
+
+h1 {
+    font-size: 18pt;
+    text-align: center;
+    margin-bottom: 20pt;
+    page-break-after: avoid;
+}
+
+h2, h3 {
+    font-size: 14pt;
+    margin-top: 15pt;
+    margin-bottom: 10pt;
+    page-break-after: avoid;
+}
+
+p {
+    margin-bottom: 8pt;
+}
+
+/* Question formatting */
+.question {
+    margin-bottom: 15pt;
+    page-break-inside: avoid;
+}
+
+/* True/False questions */
+strong:contains("T/F:") {
+    font-weight: bold;
+}
+
+/* Multiple choice options */
+ul, ol {
+    margin-left: 20pt;
+    margin-bottom: 10pt;
+}
+
+li {
+    margin-bottom: 3pt;
+}
+
+/* Answer lines */
+hr {
+    border: none;
+    border-bottom: 1px solid #000;
+    margin: 5pt 0;
+}
+
+/* Page breaks */
+.page-break {
+    page-break-before: always;
+}
+
+/* Print-specific styles */
+@media print {
+    body {
+        margin: 0.5in;
+        font-size: 11pt;
+    }
+    
+    h1 {
+        font-size: 16pt;
+    }
+    
+    h2, h3 {
+        font-size: 13pt;
+    }
+    
+    /* Ensure questions don't break across pages */
+    .question {
+        page-break-inside: avoid;
+    }
+    
+    /* Force page breaks before major sections */
+    h2 {
+        page-break-before: auto;
+    }
+    
+    /* Hide any web-specific elements */
+    .no-print {
+        display: none;
+    }
+}
+
+/* Answer space formatting */
+._______________________________________________________________________________ {
+    border-bottom: 1px solid #000;
+    display: inline-block;
+    width: 100%;
+    height: 1em;
+    margin: 2pt 0;
+}
+
+/* Header information styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20pt;
+}
+
+td {
+    padding: 5pt;
+    border-bottom: 1px solid #000;
+}
+
+/* Spacing for short answer questions */
+.short-answer-space {
+    height: 120pt;
+    border-bottom: none;
+    margin-bottom: 15pt;
+}
