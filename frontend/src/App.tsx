@@ -105,6 +105,10 @@ function App() {
       }, 500);
 
     } catch (error: any) {
+      console.error('Quiz upload error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
       const errorMessage = error.response?.data?.detail || 'Failed to upload quiz. Please try again.';
       setUploadProgress({
         status: 'error',

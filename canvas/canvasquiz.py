@@ -2,6 +2,7 @@ import requests
 import re
 import os
 from dotenv import load_dotenv
+from question_parsers import parse_questions_markdown, parse_questions, parse_questions_cmpe_format
 
 # Load environment variables from .env file
 load_dotenv()
@@ -140,344 +141,266 @@ def test_canvas_api(course_prefix=None):
         print(f"Unexpected error: {e}")
         return False
 
-def parse_questions_markdown(filename):
+
+def interactive_course_selection(course_prefix=None):
     """
-    Parse questions from a markdown file with the following format:
+    Interactive course selection that displays courses and allows user to choose one.
     
-    ### True/False Questions (T/F) - 2 points each
-    **1. T/F: Question text**
-    **Answer:** ...
-    **Explanation:** ...
+    Args:
+        course_prefix (str, optional): Filter courses that start with this prefix
     
-    ### Multiple Choice Questions (MCQ) - 3 points each
-    **13. Question text**
-    a) Option A
-    b) Option B
-    c) Option C
-    d) Option D
-    **Answer:** ...
-    **Explanation:** ...
-    
-    ### Short Answer Questions - 4 points each
-    1. **Topic**
-       Question text
-       **Answer:** ...
-       **Explanation:** ...
-       
     Returns:
-        tuple: (questions_list, section_metadata_dict)
+        str: Selected course ID, or None if selection failed
     """
-    with open(filename, 'r') as f:
-        content = f.read()
-    
-    # Group questions by type
-    question_groups = {
-        'true_false_question': [],
-        'multiple_choice_question': [],
-        'short_answer_question': []
-    }
-    
-    # Track section metadata (points per question type)
-    section_metadata = {}
-    
-    lines = content.split('\n')
-    current_section = None
-    current_points = 1  # default points
-    i = 0
-    
-    while i < len(lines):
-        line = lines[i].strip()
+    try:
+        # Test API connection first
+        profile_response = requests.get(f'{API_URL}/users/self/profile', headers=headers)
         
-        # Check for section headers
-        if line.startswith('### '):
-            section_title = line[4:].strip().lower()
-            
-            # Extract points from section title
-            import re
-            points_match = re.search(r'(\d+)\s*points?\s*each', section_title)
-            current_points = int(points_match.group(1)) if points_match else 1
-            
-            if 'true/false' in section_title or 't/f' in section_title:
-                current_section = 'true_false_question'
-                section_metadata['true_false_question'] = current_points
-            elif 'multiple choice' in section_title or 'mcq' in section_title:
-                current_section = 'multiple_choice_question'
-                section_metadata['multiple_choice_question'] = current_points
-            elif 'short answer' in section_title:
-                current_section = 'short_answer_question'
-                section_metadata['short_answer_question'] = current_points
-            else:
-                current_section = None
-            i += 1
-            continue
+        if profile_response.status_code != 200:
+            print(f"❌ API connection failed. Status code: {profile_response.status_code}")
+            return None
         
-        # Skip empty lines and non-question lines
-        if not line or not current_section:
-            i += 1
-            continue
+        profile = profile_response.json()
+        print(f"✅ Connected to Canvas as: {profile.get('name', 'Unknown')}")
+        print("=" * 60)
         
-        # Parse questions based on section type
-        if current_section == 'true_false_question':
-            # Look for T/F questions: **1. T/F: Question text**
-            if line.startswith('**') and ('T/F:' in line or 't/f:' in line.lower()):
-                # Extract question text after T/F:
-                question_text = line
-                # Remove markdown formatting and numbering
-                question_text = question_text.replace('**', '')
-                # Find T/F: and extract everything after it
-                tf_index = question_text.lower().find('t/f:')
-                if tf_index != -1:
-                    question_text = question_text[tf_index + 4:].strip()
-                    
-                    # Look for the answer in the following lines
-                    correct_answer = None
-                    j = i + 1
-                    while j < len(lines) and j < i + 10:  # Look ahead up to 10 lines
-                        answer_line = lines[j].strip()
-                        if answer_line.startswith('**Answer:**'):
-                            answer_text = answer_line.replace('**Answer:**', '').strip()
-                            correct_answer = answer_text.lower() in ['true', 't', '1', 'yes']
-                            break
-                        j += 1
-                    
-                    # Create answers array with correct answer marked
-                    answers = [
-                        {"answer_text": "True", "weight": 100 if correct_answer else 0},
-                        {"answer_text": "False", "weight": 0 if correct_answer else 100}
-                    ]
-                    
-                    question_groups['true_false_question'].append({
-                        "question_text": question_text,
-                        "question_type": "true_false_question",
-                        "points_possible": current_points,
-                        "answers": answers
-                    })
+        # Get courses
+        courses = get_filtered_courses(course_prefix)
         
-        elif current_section == 'multiple_choice_question':
-            # Look for MCQ questions: **13. Question text**
-            if line.startswith('**') and line.endswith('**') and not line.startswith('**Answer:') and not line.startswith('**Explanation:'):
-                question_text = line.replace('**', '')
-                # Remove numbering (e.g., "13. ")
-                import re
-                question_text = re.sub(r'^\d+\.\s*', '', question_text)
+        if not courses:
+            filter_msg = f" matching prefix '{course_prefix}'" if course_prefix else ""
+            print(f"❌ No courses found{filter_msg}.")
+            return None
+        
+        # Display courses with numbers for selection
+        filter_msg = f" (filtered by '{course_prefix}')" if course_prefix else ""
+        print(f"📚 Available Courses{filter_msg}:")
+        print("-" * 60)
+        
+        for i, course in enumerate(courses, 1):
+            course_id = course.get('id', 'N/A')
+            course_name = course.get('name', 'Unnamed Course')
+            course_code = course.get('course_code', 'N/A')
+            print(f"{i:2}. [{course_id}] {course_name}")
+            if course_code != 'N/A':
+                print(f"    Code: {course_code}")
+        
+        print("-" * 60)
+        
+        # Get user selection
+        while True:
+            try:
+                selection = input(f"\n🎯 Select a course (1-{len(courses)}) or 'q' to quit: ").strip()
                 
-                # Collect answer options - handle both formats: a), b), c), d) and A., B., C., D.
-                j = i + 1
-                answer_options = []
-                correct_answer_text = None
-                option_format = None  # Track which format is being used
+                if selection.lower() == 'q':
+                    print("👋 Goodbye!")
+                    return None
                 
-                while j < len(lines):
-                    option_line = lines[j].strip()
+                course_index = int(selection) - 1
+                if 0 <= course_index < len(courses):
+                    selected_course = courses[course_index]
+                    course_id = str(selected_course.get('id'))
+                    course_name = selected_course.get('name', 'Unknown Course')
+                    print(f"✅ Selected: [{course_id}] {course_name}")
+                    return course_id
+                else:
+                    print(f"❌ Please enter a number between 1 and {len(courses)}")
                     
-                    # Check for lowercase format: a), b), c), d)
-                    if option_line.startswith(('a)', 'b)', 'c)', 'd)')):
-                        answer_options.append(option_line[2:].strip())
-                        option_format = 'lowercase_paren'
-                        j += 1
-                    # Check for uppercase format: A), B), C), D)
-                    elif option_line.startswith(('A)', 'B)', 'C)', 'D)')):
-                        answer_options.append(option_line[2:].strip())
-                        option_format = 'uppercase_paren'
-                        j += 1
-                    # Check for uppercase dot format: A., B., C., D.
-                    elif option_line.startswith(('A.', 'B.', 'C.', 'D.')):
-                        answer_options.append(option_line[2:].strip())
-                        option_format = 'uppercase_dot'
-                        j += 1
-                    # Check for lowercase dot format: a., b., c., d.
-                    elif option_line.startswith(('a.', 'b.', 'c.', 'd.')):
-                        answer_options.append(option_line[2:].strip())
-                        option_format = 'lowercase_dot'
-                        j += 1
-                    elif option_line.startswith('**Answer:**'):
-                        # Extract the correct answer (e.g., "b) [-1, 1]" or "C" or "b)")
-                        answer_text = option_line.replace('**Answer:**', '').strip()
-                        correct_answer_text = answer_text
-                        break
-                    else:
-                        j += 1
+            except ValueError:
+                print("❌ Please enter a valid number or 'q' to quit")
+            except KeyboardInterrupt:
+                print("\n👋 Goodbye!")
+                return None
                 
-                if answer_options and correct_answer_text:
-                    # Parse the correct answer to find which option is correct
-                    correct_option_letter = None
-                    if correct_answer_text and len(correct_answer_text) > 0:
-                        # Handle different answer formats: "b)", "C", "b) [-1, 1]", etc.
-                        first_char = correct_answer_text[0].lower()
-                        if first_char in ['a', 'b', 'c', 'd']:
-                            correct_option_letter = first_char
-                    
-                    # Create Canvas API format answers with weights
-                    canvas_answers = []
-                    option_letters = ['a', 'b', 'c', 'd']
-                    
-                    for idx, option_text in enumerate(answer_options):
-                        if idx < len(option_letters):
-                            is_correct = option_letters[idx] == correct_option_letter
-                            canvas_answers.append({
-                                "answer_text": option_text,
-                                "weight": 100 if is_correct else 0
-                            })
-                    
-                    question_groups['multiple_choice_question'].append({
-                        "question_text": question_text,
-                        "question_type": "multiple_choice_question",
-                        "answers": canvas_answers,
-                        "points_possible": current_points
-                    })
-                elif answer_options:  # Fallback for questions without answers
-                    question_groups['multiple_choice_question'].append({
-                        "question_text": question_text,
-                        "question_type": "multiple_choice_question",
-                        "answer_options": answer_options,
-                        "points_possible": current_points
-                    })
-        
-        elif current_section == 'short_answer_question':
-            # Look for short answer questions in multiple formats:
-            # Format 1: number. **Question text**
-            # Format 2: **number. Question text**
-            import re
-            
-            # Format 1: number. **Question text**
-            if re.match(r'^\d+\.\s*\*\*.*\*\*$', line):
-                # Extract question text from between ** markers
-                question_match = re.search(r'\*\*(.*?)\*\*', line)
-                if question_match:
-                    question_text = question_match.group(1).strip()
-                    question_groups['short_answer_question'].append({
-                        "question_text": question_text,
-                        "question_type": "short_answer_question",
-                        "points_possible": current_points
-                    })
-            
-            # Format 2: **number. Question text**
-            elif line.startswith('**') and line.endswith('**') and not line.startswith('**Answer:') and not line.startswith('**Explanation:'):
-                # Check if this line contains a numbered question
-                line_content = line.replace('**', '').strip()
-                if re.match(r'^\d+\.\s+', line_content):
-                    # Remove the number and extract question text
-                    question_text = re.sub(r'^\d+\.\s+', '', line_content)
-                    question_groups['short_answer_question'].append({
-                        "question_text": question_text,
-                        "question_type": "short_answer_question",
-                        "points_possible": current_points
-                    })
-        
-        i += 1
-    
-    # Flatten the grouped questions into a single list, maintaining type grouping
-    questions = []
-    for question_type in ['true_false_question', 'multiple_choice_question', 'short_answer_question']:
-        questions.extend(question_groups[question_type])
-    
-    return questions, section_metadata
+    except Exception as e:
+        print(f"❌ Error during course selection: {e}")
+        return None
 
-def parse_questions(filename):
-    """
-    Parse questions from a text file supporting multiple question types:
-    
-    Multiple Choice:
-    Q: Question text
-    A) Answer option A
-    B) Answer option B
-    C) Answer option C
-    D) Answer option D
-    Answer: A
-    
-    True/False:
-    Q: Question text
-    Type: true_false
-    Answer: True
-    
-    Short Answer/Essay:
-    Q: Question text
-    Type: short_answer
-    Answer: Sample answer (optional)
-    
-    Essay:
-    Q: Question text
-    Type: essay
-    Answer: Sample answer (optional)
-    """
-    with open(filename, 'r') as f:
-        content = f.read()
 
-    questions = []
-    raw_questions = re.split(r'\n\s*\n', content.strip())
+def get_quiz_details():
+    """
+    Interactive prompts to get quiz name and time limit from user.
     
-    for block in raw_questions:
-        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
-        if not lines:
-            continue
+    Returns:
+        tuple: (quiz_title, time_limit) or (None, None) if cancelled
+    """
+    try:
+        print("\n" + "=" * 60)
+        print("📝 Quiz Configuration")
+        print("=" * 60)
+        
+        # Get quiz title
+        while True:
+            quiz_title = input("📋 Enter quiz title (or 'q' to quit): ").strip()
             
-        question_text = lines[0].split("Q:")[1].strip()
-        
-        # Check if question type is specified
-        question_type = "multiple_choice_question"  # default
-        type_line = None
-        answer_line = None
-        
-        for i, line in enumerate(lines[1:], 1):
-            if line.startswith("Type:"):
-                type_spec = line.split("Type:")[1].strip().lower()
-                if type_spec == "true_false":
-                    question_type = "true_false_question"
-                elif type_spec == "short_answer":
-                    question_type = "short_answer_question"
-                elif type_spec == "essay":
-                    question_type = "essay_question"
-                type_line = i
-            elif line.startswith("Answer:"):
-                answer_line = i
+            if quiz_title.lower() == 'q':
+                return None, None
+            
+            if quiz_title:
                 break
+            else:
+                print("❌ Quiz title cannot be empty. Please try again.")
         
-        question_obj = {
-            "question_text": question_text,
-            "question_type": question_type
-        }
-        
-        if question_type == "multiple_choice_question":
-            # Parse multiple choice answers
-            answer_lines = []
-            for line in lines[1:]:
-                if line.startswith("Answer:"):
+        # Get time limit
+        while True:
+            try:
+                time_input = input("⏰ Enter time limit in minutes (default: 30): ").strip()
+                
+                if time_input.lower() == 'q':
+                    return None, None
+                
+                if not time_input:
+                    time_limit = 30
                     break
-                if re.match(r'^[A-Z]\)', line):
-                    answer_lines.append(line)
-            
-            correct_answer = lines[-1].split("Answer:")[1].strip()
-            correct_index = ord(correct_answer.upper()) - ord('A')
-            
-            answer_objs = []
-            for i, ans in enumerate(answer_lines):
-                answer_text = ans[2:].strip()  # Remove "A)", "B)", etc.
-                answer_objs.append({
-                    "answer_text": answer_text,
-                    "weight": 100 if i == correct_index else 0
-                })
-            
-            question_obj["answers"] = answer_objs
-            
-        elif question_type == "true_false_question":
-            # Parse true/false answer
-            correct_answer = lines[-1].split("Answer:")[1].strip().lower()
-            is_true = correct_answer in ['true', 't', '1', 'yes']
-            
-            question_obj["answers"] = [
-                {"answer_text": "True", "weight": 100 if is_true else 0},
-                {"answer_text": "False", "weight": 0 if is_true else 100}
-            ]
-            
-        elif question_type in ["short_answer_question", "essay_question"]:
-            # For short answer and essay, we can optionally store a sample answer
-            if answer_line:
-                sample_answer = lines[answer_line].split("Answer:")[1].strip()
-                question_obj["sample_answer"] = sample_answer
+                
+                time_limit = int(time_input)
+                if time_limit > 0:
+                    break
+                else:
+                    print("❌ Time limit must be a positive number")
+                    
+            except ValueError:
+                print("❌ Please enter a valid number for time limit")
         
-        questions.append(question_obj)
+        print(f"✅ Quiz: '{quiz_title}' | Time: {time_limit} minutes")
+        return quiz_title, time_limit
+        
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        return None, None
+
+
+def get_questions_file():
+    """
+    Interactive file selection with validation and default options.
     
-    return questions
+    Returns:
+        str: File path or None if cancelled
+    """
+    try:
+        print("\n" + "=" * 60)
+        print("📁 Question File Selection")
+        print("=" * 60)
+        
+        # Show available sample files
+        sample_files = []
+        data_dir = "data"
+        if os.path.exists(data_dir):
+            for file in os.listdir(data_dir):
+                if file.endswith(('.md', '.txt')):
+                    sample_files.append(os.path.join(data_dir, file))
+        
+        # Show current directory files
+        current_files = []
+        for file in os.listdir('.'):
+            if file.endswith(('.md', '.txt')):
+                current_files.append(file)
+        
+        all_files = sample_files + current_files
+        
+        if all_files:
+            print("📋 Available question files:")
+            for i, file in enumerate(all_files, 1):
+                print(f"{i:2}. {file}")
+            print("-" * 60)
+        
+        while True:
+            if all_files:
+                file_input = input(f"📁 Enter file path, select number (1-{len(all_files)}), or 'q' to quit: ").strip()
+            else:
+                file_input = input("📁 Enter file path or 'q' to quit: ").strip()
+            
+            if file_input.lower() == 'q':
+                return None
+            
+            # Check if it's a number selection
+            try:
+                file_index = int(file_input) - 1
+                if 0 <= file_index < len(all_files):
+                    file_path = all_files[file_index]
+                else:
+                    print(f"❌ Please enter a number between 1 and {len(all_files)}")
+                    continue
+            except ValueError:
+                # It's a file path
+                file_path = file_input
+            
+            # Validate file exists
+            if os.path.exists(file_path):
+                if file_path.endswith(('.md', '.txt')):
+                    print(f"✅ Selected file: {file_path}")
+                    return file_path
+                else:
+                    print("❌ File must be a .md or .txt file")
+            else:
+                print(f"❌ File not found: {file_path}")
+                
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        return None
+
+
+def interactive_quiz_upload():
+    """
+    Complete interactive quiz upload process similar to the frontend.
+    """
+    print("🚀 Interactive Quiz Upload to Canvas")
+    print("=" * 60)
+    
+    # Step 1: Select course
+    print("Step 1: Course Selection")
+    course_id = interactive_course_selection()
+    if not course_id:
+        return
+    
+    # Step 2: Get quiz details
+    print("\nStep 2: Quiz Configuration")
+    quiz_title, time_limit = get_quiz_details()
+    if not quiz_title:
+        return
+    
+    # Step 3: Select questions file
+    print("\nStep 3: Question File Selection")
+    questions_file = get_questions_file()
+    if not questions_file:
+        return
+    
+    # Step 4: Upload quiz
+    print("\n" + "=" * 60)
+    print("🚀 Uploading Quiz to Canvas...")
+    print("=" * 60)
+    print(f"📚 Course ID: {course_id}")
+    print(f"📋 Quiz Title: {quiz_title}")
+    print(f"⏰ Time Limit: {time_limit} minutes")
+    print(f"📁 Questions File: {questions_file}")
+    print("-" * 60)
+    
+    try:
+        quiz_result = upload_quiz_from_file(
+            questions_file, 
+            quiz_title, 
+            course_id=course_id, 
+            time_limit=time_limit
+        )
+        
+        if quiz_result:
+            print("\n🎉 Quiz Upload Successful!")
+            print("=" * 60)
+            print(f"📋 Quiz Title: {quiz_result['quiz_title']}")
+            print(f"🆔 Quiz ID: {quiz_result['quiz_id']}")
+            print(f"📊 Questions: {quiz_result['successful_uploads']}/{quiz_result['total_questions']}")
+            print(f"🔗 Quiz URL: {quiz_result['quiz_url']}")
+            print("=" * 60)
+        else:
+            print("\n❌ Quiz upload failed. Please check the error messages above.")
+            
+    except Exception as e:
+        print(f"\n❌ Error during quiz upload: {e}")
+        print("Please check your configuration and try again.")
+
+
+
+
 
 def create_quiz_question_group(quiz_id, group_name, question_count, points_per_question, course_id=None):
     """
@@ -570,10 +493,23 @@ def upload_quiz_from_file(questions_file, quiz_title=None, course_id=None, time_
         # Step 2: Parse questions from file
         print(f"Parsing questions from: {questions_file}")
         
-        # Determine which parser to use based on file extension
+        # Determine which parser to use based on file content and name
         if questions_file.endswith('.md'):
-            questions, section_metadata = parse_questions_markdown(questions_file)
-            print(f"Found {len(questions)} questions (parsed from Markdown)")
+            # Check if it's the CMPE format by looking for specific patterns
+            try:
+                with open(questions_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                # Check for CMPE format indicators: separator and answer format
+                if '⸻' in content and 'Answer:' in content:
+                    questions, section_metadata = parse_questions_cmpe_format(questions_file)
+                    print(f"Found {len(questions)} questions (parsed from CMPE format)")
+                else:
+                    questions, section_metadata = parse_questions_markdown(questions_file)
+                    print(f"Found {len(questions)} questions (parsed from standard Markdown)")
+            except Exception as e:
+                print(f"Error reading file for format detection: {e}")
+                questions, section_metadata = parse_questions_markdown(questions_file)
+                print(f"Found {len(questions)} questions (parsed from standard Markdown)")
         else:
             questions = parse_questions(questions_file)
             section_metadata = {}  # No metadata for text format
@@ -725,13 +661,25 @@ if __name__ == "__main__":
         else:
             print("\nFailed to create quiz. Please check your configuration and try again.")
             sys.exit(1)
+    
+    elif len(sys.argv) > 1 and sys.argv[1] == "interactive":
+        # Interactive mode - similar to frontend experience
+        interactive_quiz_upload()
+    
     else:
         # Default behavior: test API connection
-        print("Testing Canvas API connection...")
+        print("Canvas Quiz Management Tool")
+        print("=" * 50)
+        print("Available modes:")
+        print("1. python canvasquiz.py                    - Test API connection and list courses")
+        print("2. python canvasquiz.py interactive        - Interactive quiz upload (recommended)")
+        print("3. python canvasquiz.py upload <file>      - Direct upload with command line args")
         print("=" * 50)
         
         try:
             # Test the API connection and list courses
+            print("\nTesting Canvas API connection...")
+            print("=" * 50)
             # Uncomment the line below to filter courses by prefix (e.g., "SP25")
             # success = test_canvas_api(course_prefix="SP25")
             success = test_canvas_api()
@@ -740,8 +688,9 @@ if __name__ == "__main__":
                 print("\n" + "=" * 50)
                 print("Canvas API test completed successfully!")
                 print("You can now use any of the course IDs listed above by setting CANVAS_COURSE_ID in your .env file.")
-                print("\nTip: To filter courses by prefix, use: test_canvas_api(course_prefix='SP25')")
-                print("\nTo upload a quiz:")
+                print("\nRecommended: Use interactive mode for the best experience:")
+                print("python canvasquiz.py interactive")
+                print("\nOr use direct upload:")
                 print("python canvasquiz.py upload sample_mixed_questions.txt 'Test Quiz'")
                 print("python canvasquiz.py upload cmpe257_exam_questions.md 'CMPE257 Exam'")
             else:

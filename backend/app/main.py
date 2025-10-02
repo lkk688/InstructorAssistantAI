@@ -122,6 +122,10 @@ async def upload_quiz(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Upload error details: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 if __name__ == "__main__":

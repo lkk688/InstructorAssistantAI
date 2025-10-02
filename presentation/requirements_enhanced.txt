@@ -1,0 +1,25 @@
+# Enhanced PPTX Extractor Requirements
+# Core dependencies
+python-pptx>=0.6.21
+pillow>=9.0.0
+numpy>=1.21.0
+opencv-python>=4.5.0
+
+# OCR dependencies
+easyocr>=1.6.0
+torch>=1.9.0
+torchvision>=0.10.0
+
+# LaTeX equation OCR (optional but recommended)
+pix2tex[gui]>=0.1.2
+
+# Additional utilities
+pathlib2>=2.3.0  # For older Python versions
+dataclasses>=0.6  # For Python < 3.7
+
+# Optional: For better image processing
+scikit-image>=0.18.0
+matplotlib>=3.3.0
+
+# For logging and utilities
+tqdm>=4.62.0
