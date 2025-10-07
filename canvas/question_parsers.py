@@ -353,6 +353,7 @@ def parse_questions_cmpe_format(filename):
     Parse questions from CMPE format markdown file with the following structure:
     
     # CMPE 249 Exam Questions
+    **FORMAT**: CMPE
     
     ## True/False Questions (T/F) - 2 points each
     
@@ -364,7 +365,7 @@ def parse_questions_cmpe_format(filename):
     
     ## Multiple Choice Questions (MCQ) - 3 points each
     
-    1. Question text
+    1. MCQ: Question text
     a) Option A
     b) Option B
     c) Option C
@@ -377,7 +378,7 @@ def parse_questions_cmpe_format(filename):
     
     Short Answer Questions - 4 points each
     
-    1. Question text
+    Q: Question text
     Answer: Sample answer
     Explanation: ...
     
@@ -389,8 +390,13 @@ def parse_questions_cmpe_format(filename):
     with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Split content by the separator ⸻
-    sections = content.split('⸻')
+    # Check for FORMAT: CMPE at the beginning for simplified assessment
+    format_detected = False
+    if '**FORMAT**: CMPE' in content or '**FORMAT**: cmpe' in content.lower():
+        format_detected = True
+    
+    # Split content by the separator ⸻ or similar Unicode separators
+    sections = re.split(r'[⸻\u2e3b\u2014\u2015\u2500-\u257f]+', content)
     
     questions = []
     section_metadata = {}
@@ -406,7 +412,7 @@ def parse_questions_cmpe_format(filename):
         if not lines:
             continue
         
-        # Check for section headers
+        # Check for section headers (including markdown headers as separators)
         section_header = None
         for line in lines:
             if (line.startswith('## ') or 
@@ -440,13 +446,19 @@ def parse_questions_cmpe_format(filename):
         if not current_section_type:
             continue
             
-        # Find question text (numbered line)
+        # Find question text - improved pattern matching
         question_text = None
         question_line_idx = -1
         
         for i, line in enumerate(lines):
-            # Look for numbered questions: "1. " or "1:" or "1. T/F: "
-            if re.match(r'^\d+[.:]?\s+', line):
+            # Look for various question patterns:
+            # T/F questions: "T/F: " or "1. T/F: " 
+            # MCQ questions: "MCQ: " or "1. MCQ: " or just "1. "
+            # Short Answer: "Q: " or just "1. "
+            if (re.match(r'^\d*\.?\s*T/F:', line) or  # T/F questions
+                re.match(r'^\d*\.?\s*MCQ:', line) or  # MCQ questions with MCQ: prefix
+                re.match(r'^Q:', line) or             # Short answer with Q: prefix
+                (re.match(r'^\d+[.:]?\s+', line) and not line.startswith('Answer:'))):  # Numbered questions
                 question_text = line
                 question_line_idx = i
                 break
@@ -454,14 +466,26 @@ def parse_questions_cmpe_format(filename):
         if not question_text:
             continue
             
-        # Remove numbering from question text
-        question_text = re.sub(r'^\d+[.:]?\s+', '', question_text)
+        # Clean up question text by removing prefixes
+        original_question = question_text
         
-        if current_section_type == 'true_false_question':
-            # Remove "T/F: " prefix if present
-            if question_text.startswith('T/F:'):
-                question_text = question_text[4:].strip()
-            
+        # Remove numbering and prefixes
+        question_text = re.sub(r'^\d+[.:]?\s*', '', question_text)  # Remove numbering
+        question_text = re.sub(r'^T/F:\s*', '', question_text)      # Remove T/F: prefix
+        question_text = re.sub(r'^MCQ:\s*', '', question_text)      # Remove MCQ: prefix
+        question_text = re.sub(r'^Q:\s*', '', question_text)        # Remove Q: prefix
+        
+        # Determine question type from the original text if not already set by section
+        if 'T/F:' in original_question or (current_section_type == 'true_false_question'):
+            current_question_type = 'true_false_question'
+        elif 'MCQ:' in original_question or (current_section_type == 'multiple_choice_question'):
+            current_question_type = 'multiple_choice_question'
+        elif 'Q:' in original_question or (current_section_type == 'short_answer_question'):
+            current_question_type = 'short_answer_question'
+        else:
+            current_question_type = current_section_type
+        
+        if current_question_type == 'true_false_question':
             # Find the answer
             correct_answer = None
             for line in lines[question_line_idx + 1:]:
@@ -483,7 +507,7 @@ def parse_questions_cmpe_format(filename):
                     "answers": answers
                 })
         
-        elif current_section_type == 'multiple_choice_question':
+        elif current_question_type == 'multiple_choice_question':
             # Collect answer options
             answer_options = []
             correct_answer_text = None
@@ -524,7 +548,7 @@ def parse_questions_cmpe_format(filename):
                     "points_possible": current_points
                 })
         
-        elif current_section_type == 'short_answer_question':
+        elif current_question_type == 'short_answer_question':
             # For short answer questions, we just need the question text
             questions.append({
                 "question_text": question_text,

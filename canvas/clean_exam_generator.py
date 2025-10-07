@@ -12,6 +12,7 @@ Usage:
 import re
 import sys
 from pathlib import Path
+from question_parsers import parse_questions_cmpe_format
 
 
 def replace_unicode_with_latex(text):
@@ -86,24 +87,24 @@ def replace_unicode_with_latex(text):
     return result
 
 
-def clean_exam_questions(input_content):
+def clean_exam_questions(input_file):
     """
-    Clean exam questions by removing answers and explanations.
+    Clean exam questions by removing answers and explanations using question parsers.
     
     Args:
-        input_content (str): The original exam content with answers
+        input_file (str): Path to the original exam file with answers
         
     Returns:
         str: Cleaned exam content without answers
     """
-    lines = input_content.split('\n')
+    # Parse questions using the CMPE format parser
+    questions, sections = parse_questions_cmpe_format(input_file)
+    
     cleaned_lines = []
-    current_section = None
-    question_counter = 0
     
     # Add header and instructions
     cleaned_lines.extend([
-        '# CMPE 257 Machine Learning - Comprehensive Exam Questions',
+        '# CMPE 258-02 Fa2025 Deep Learning - Quiz1 Questions',
         '',
         '**Name:** ________________________ **Student ID:** ________________________',
         '',
@@ -122,123 +123,54 @@ def clean_exam_questions(input_content):
         ''
     ])
     
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
+    # Group questions by section
+    current_section = None
+    question_counter = 0
+    
+    for question in questions:
+        # Check if we need to add a section header
+        if question.get('section') != current_section:
+            current_section = question.get('section')
+            if current_section:
+                cleaned_lines.append(f"## {current_section}")
+                cleaned_lines.append('')
         
-        # Skip the original title
-        if line.startswith('# CMPE 257') and i == 0:
-            i += 1
-            continue
-            
-        # Handle section headers
-        if line.startswith('### '):
-            current_section = line
-            cleaned_lines.append(line)
-            cleaned_lines.append('')
-            i += 1
-            continue
-            
-        # Handle True/False questions
-        if re.match(r'^\*\*\d+\. T/F:', line):
-            question_counter += 1
-            # Extract question text after "T/F:"
-            question_text = re.sub(r'^\*\*\d+\. T/F:', f'**{question_counter}. T/F:', line)
-            cleaned_lines.append(question_text)
+        question_counter += 1
+        question_type = question['question_type']
+        question_text = question['question_text']
+        
+        if question_type == 'true_false_question':
+            # Format True/False question
+            cleaned_lines.append(f"**{question_counter}. T/F: {question_text}**")
             cleaned_lines.append('')
             cleaned_lines.append('**T** / **F**')
             cleaned_lines.append('')
+            cleaned_lines.append('**Justification:**')
             cleaned_lines.append('___________________________________________________________________________')
             cleaned_lines.append('')
             
-            # Skip answer and explanation
-            i += 1
-            while i < len(lines):
-                next_line = lines[i].strip()
-                if (re.match(r'^\*\*\d+\. T/F:', next_line) or 
-                    re.match(r'^\*\*\d+\. [^T]', next_line) or
-                    re.match(r'^\d+\. \*\*', next_line) or
-                    next_line.startswith('### ')):
-                    break
-                i += 1
-            continue
-            
-        # Handle Multiple Choice questions
-        if re.match(r'^\*\*\d+\. [^T]', line) and current_section and 'Multiple Choice' in current_section:
-            question_counter += 1
-            # Extract question text and renumber
-            question_text = re.sub(r'^\*\*\d+\.', f'**{question_counter}.', line)
-            cleaned_lines.append(question_text)
+        elif question_type == 'multiple_choice_question':
+            # Format Multiple Choice question
+            cleaned_lines.append(f"**{question_counter}. {question_text}**")
             cleaned_lines.append('')
             
-            # Look ahead for options
-            i += 1
-            while i < len(lines):
-                option_line = lines[i].strip()
-                if re.match(r'^[a-dA-D][.)\)]', option_line):
-                    # Standardize to lowercase a-d format with parentheses
-                    standardized_option = re.sub(r'^([a-dA-D])[.)\)]', lambda m: m.group(1).lower() + ')', option_line)
-                    cleaned_lines.append(standardized_option)
-                    i += 1
-                elif option_line.startswith('**Answer:**'):
-                    break
-                elif option_line == '':
-                    i += 1
-                else:
-                    i += 1
-                    
+            # Add answer choices
+            for i, answer in enumerate(question.get('answers', [])):
+                choice_letter = chr(ord('a') + i)
+                cleaned_lines.append(f"{choice_letter}) {answer['answer_text']}")
+            
             cleaned_lines.append('')
             cleaned_lines.append('**Answer:** _______')
             cleaned_lines.append('')
             
-            # Skip answer and explanation
-            while i < len(lines):
-                next_line = lines[i].strip()
-                if (re.match(r'^\*\*\d+\. T/F:', next_line) or 
-                    re.match(r'^\*\*\d+\. [^T]', next_line) or
-                    re.match(r'^\d+\. \*\*', next_line) or
-                    next_line.startswith('### ')):
-                    break
-                i += 1
-            continue
-            
-        # Handle Short Answer questions
-        if (re.match(r'^\d+\. \*\*', line) or re.match(r'^\*\*\d+\.', line)) and current_section and 'Short Answer' in current_section:
-            question_counter += 1
-            # Extract question text and renumber - standardize to "number. **text**" format
-            if re.match(r'^\d+\. \*\*', line):
-                question_text = re.sub(r'^\d+\.', f'{question_counter}.', line)
-            else:
-                # Convert "**number. text**" to "number. **text**" format
-                question_text = re.sub(r'^\*\*\d+\.\s*', f'{question_counter}. **', line)
-            cleaned_lines.append(question_text)
+        elif question_type == 'short_answer_question':
+            # Format Short Answer question
+            cleaned_lines.append(f"**{question_counter}. {question_text}**")
             cleaned_lines.append('')
             # Add answer lines
             for _ in range(8):
                 cleaned_lines.append('___________________________________________________________________________')
                 cleaned_lines.append('')
-            
-            # Skip answer and explanation
-            i += 1
-            while i < len(lines):
-                next_line = lines[i].strip()
-                if (re.match(r'^\d+\. \*\*', next_line) or 
-                    re.match(r'^\*\*\d+\.', next_line) or
-                    next_line.startswith('### ') or
-                    next_line == '---'):
-                    break
-                i += 1
-            continue
-            
-        # Handle section breaks
-        if line == '---':
-            cleaned_lines.append('---')
-            cleaned_lines.append('')
-            i += 1
-            continue
-            
-        # Skip everything else (answers, explanations, etc.)
-        i += 1
     
     # Clean up multiple consecutive empty lines
     result = []
@@ -281,7 +213,7 @@ def main():
             content = f.read()
             
         # Clean the content
-        cleaned_content = clean_exam_questions(content)
+        cleaned_content = clean_exam_questions(input_file)
         
         # Write output file
         with open(output_file, 'w', encoding='utf-8') as f:
