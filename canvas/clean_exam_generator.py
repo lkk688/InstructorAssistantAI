@@ -163,12 +163,12 @@ def clean_exam_questions(input_file):
             cleaned_lines.append('**Answer:** _______')
             cleaned_lines.append('')
             
-        elif question_type == 'short_answer_question':
-            # Format Short Answer question
+        elif question_type == 'essay_question':
+            # Format Essay question (previously short_answer_question)
             cleaned_lines.append(f"**{question_counter}. {question_text}**")
             cleaned_lines.append('')
-            # Add answer lines
-            for _ in range(8):
+            # Add answer lines for essay questions
+            for _ in range(10):  # More lines for essay questions
                 cleaned_lines.append('___________________________________________________________________________')
                 cleaned_lines.append('')
     

@@ -8,6 +8,12 @@ This module contains various parsers for different question formats:
 """
 
 import re
+import sys
+import os
+
+# Add the canvas directory to the path for importing math_converter
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from math_converter import batch_convert_questions
 
 
 def parse_questions_markdown(filename):
@@ -238,6 +244,9 @@ def parse_questions_markdown(filename):
     for question_type in ['true_false_question', 'multiple_choice_question', 'short_answer_question']:
         questions.extend(question_groups[question_type])
     
+    # Convert math equations to Canvas format before returning
+    questions = batch_convert_questions(questions)
+    
     return questions, section_metadata
 
 
@@ -345,6 +354,9 @@ def parse_questions(filename):
         
         questions.append(question_obj)
     
+    # Convert math equations to Canvas format before returning
+    questions = batch_convert_questions(questions)
+    
     return questions
 
 
@@ -436,8 +448,8 @@ def parse_questions_cmpe_format(filename):
                 current_section_type = 'multiple_choice_question'
                 section_metadata['multiple_choice_question'] = current_points
             elif 'short answer' in section_title:
-                current_section_type = 'short_answer_question'
-                section_metadata['short_answer_question'] = current_points
+                current_section_type = 'essay_question'  # Changed to essay_question for Canvas compatibility
+                section_metadata['essay_question'] = current_points
             
             # Don't skip this section - continue to parse questions in it
             # continue
@@ -480,8 +492,8 @@ def parse_questions_cmpe_format(filename):
             current_question_type = 'true_false_question'
         elif 'MCQ:' in original_question or (current_section_type == 'multiple_choice_question'):
             current_question_type = 'multiple_choice_question'
-        elif 'Q:' in original_question or (current_section_type == 'short_answer_question'):
-            current_question_type = 'short_answer_question'
+        elif 'Q:' in original_question or (current_section_type == 'essay_question'):
+            current_question_type = 'essay_question'
         else:
             current_question_type = current_section_type
         
@@ -548,12 +560,32 @@ def parse_questions_cmpe_format(filename):
                     "points_possible": current_points
                 })
         
-        elif current_question_type == 'short_answer_question':
-            # For short answer questions, we just need the question text
+        elif current_question_type == 'essay_question':  # Updated from short_answer_question
+            # For essay questions, collect only the question text, not the answer
+            full_question_text = question_text
+            
+            # Collect all lines until we hit the answer or next section
+            for line in lines[question_line_idx + 1:]:
+                # Stop if we hit an answer line, new section header, or another question
+                if (line.startswith('Answer:') or
+                    line.startswith('⸻') or 
+                    re.match(r'^\d*\.?\s*T/F:', line) or
+                    re.match(r'^\d*\.?\s*MCQ:', line) or
+                    re.match(r'^Q:', line) or
+                    (re.match(r'^\s*$', line) and len(full_question_text.strip()) > 50)):  # Stop at empty line if we have enough content
+                    break
+                
+                # Skip empty lines at the beginning but include them later
+                if line.strip() or len(full_question_text.strip()) > len(question_text.strip()):
+                    full_question_text += "\n" + line
+            
             questions.append({
-                "question_text": question_text,
-                "question_type": "short_answer_question",
+                "question_text": full_question_text.strip(),
+                "question_type": "essay_question",  # Changed from short_answer_question to essay_question
                 "points_possible": current_points
             })
+    
+    # Convert math equations to Canvas format before returning
+    questions = batch_convert_questions(questions)
     
     return questions, section_metadata
