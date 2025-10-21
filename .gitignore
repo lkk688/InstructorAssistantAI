@@ -212,3 +212,4 @@ data/
 canvas/cmpe257_exam_questions.md
 canvas/cmpe257review_final.md
 quiz_answers_1869206_20250907_220824.md
+backend/.env.example

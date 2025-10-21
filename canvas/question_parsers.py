@@ -465,14 +465,15 @@ def parse_questions_cmpe_format(filename):
         for i, line in enumerate(lines):
             # Look for various question patterns:
             # T/F questions: "T/F: " or "1. T/F: " or "1. (T/F)" 
-            # MCQ questions: "MCQ: " or "1. MCQ: " or just "1. "
+            # MCQ questions: "MCQ: " or "1. MCQ: " or "1. (MCQ)" or just "1. "
             # Short Answer: "Q: " or "1. (Short Answer)" or just "1. "
             if (re.match(r'^\d*\.?\s*T/F:', line) or          # T/F questions with T/F: prefix
                 re.match(r'^\d*\.?\s*\(T/F\)', line) or       # T/F questions with (T/F) prefix
                 re.match(r'^\d*\.?\s*MCQ:', line) or          # MCQ questions with MCQ: prefix
+                re.match(r'^\d*\.?\s*\(MCQ\)', line) or       # MCQ questions with (MCQ) prefix
                 re.match(r'^\d*\.?\s*\(Short Answer\)', line) or  # Short answer with (Short Answer) prefix
                 re.match(r'^Q:', line) or                     # Short answer with Q: prefix
-                (re.match(r'^\d+[.:]?\s+', line) and not line.startswith('Answer:'))):  # Numbered questions
+                (re.match(r'^\d+[.:]?\s+', line) and not line.startswith('Answer:') and not line.startswith('Explanation:') and not line.startswith('**Answer:**'))):  # Numbered questions (excluding Answer/Explanation lines)
                 question_text = line
                 question_line_idx = i
                 break
@@ -488,6 +489,7 @@ def parse_questions_cmpe_format(filename):
         question_text = re.sub(r'^T/F:\s*', '', question_text)          # Remove T/F: prefix
         question_text = re.sub(r'^\(T/F\)\s*', '', question_text)       # Remove (T/F) prefix
         question_text = re.sub(r'^MCQ:\s*', '', question_text)          # Remove MCQ: prefix
+        question_text = re.sub(r'^\(MCQ\)\s*', '', question_text)       # Remove (MCQ) prefix
         question_text = re.sub(r'^\(Short Answer\)\s*', '', question_text)  # Remove (Short Answer) prefix
         question_text = re.sub(r'^Q:\s*', '', question_text)            # Remove Q: prefix
         
@@ -495,7 +497,7 @@ def parse_questions_cmpe_format(filename):
         if ('T/F:' in original_question or '(T/F)' in original_question or 
             (current_section_type == 'true_false_question')):
             current_question_type = 'true_false_question'
-        elif ('MCQ:' in original_question or 
+        elif ('MCQ:' in original_question or '(MCQ)' in original_question or 
               (current_section_type == 'multiple_choice_question')):
             current_question_type = 'multiple_choice_question'
         elif ('Q:' in original_question or '(Short Answer)' in original_question or 
@@ -508,8 +510,8 @@ def parse_questions_cmpe_format(filename):
             # Find the answer
             correct_answer = None
             for line in lines[question_line_idx + 1:]:
-                if line.startswith('Answer:'):
-                    answer_text = line.replace('Answer:', '').strip()
+                if line.startswith('Answer:') or line.startswith('**Answer:**'):
+                    answer_text = line.replace('Answer:', '').replace('**Answer:**', '').strip()
                     correct_answer = answer_text.lower() in ['true', 't', '1', 'yes']
                     break
             
@@ -535,8 +537,8 @@ def parse_questions_cmpe_format(filename):
                 # Check for answer options: A), B), C), D) or a), b), c), d)
                 if re.match(r'^[a-dA-D]\)', line):
                     answer_options.append(line[2:].strip())
-                elif line.startswith('Answer:'):
-                    correct_answer_text = line.replace('Answer:', '').strip()
+                elif line.startswith('Answer:') or line.startswith('**Answer:**'):
+                    correct_answer_text = line.replace('Answer:', '').replace('**Answer:**', '').strip()
                     break
             
             if answer_options and correct_answer_text:
@@ -574,11 +576,12 @@ def parse_questions_cmpe_format(filename):
             # Collect all lines until we hit the answer or next section
             for line in lines[question_line_idx + 1:]:
                 # Stop if we hit an answer line, new section header, or another question
-                if (line.startswith('Answer:') or
+                if (line.startswith('Answer:') or line.startswith('**Answer:**') or
                     line.startswith('⸻') or 
                     re.match(r'^\d*\.?\s*T/F:', line) or
                     re.match(r'^\d*\.?\s*\(T/F\)', line) or
                     re.match(r'^\d*\.?\s*MCQ:', line) or
+                    re.match(r'^\d*\.?\s*\(MCQ\)', line) or
                     re.match(r'^\d*\.?\s*\(Short Answer\)', line) or
                     re.match(r'^Q:', line) or
                     (re.match(r'^\s*$', line) and len(full_question_text.strip()) > 50)):  # Stop at empty line if we have enough content

@@ -113,11 +113,11 @@ def clean_exam_questions(input_file):
         '---',
         '',
         '## Instructions',
+        '- The exam is closed book and closed notes',
         '- Answer all questions clearly and concisely',
-        '- For True/False questions, circle T or F and provide brief justification if required',
-        '- For Multiple Choice questions, circle the correct answer',
-        '- For Short Answer questions, use the space provided',
-        '- Show your work where applicable',
+        '- For True/False questions (2 pts per question), circle T or F',
+        '- For Multiple Choice questions (3 pts per question), circle the correct answer',
+        '- For Short Answer questions (4 pts per question), use the space provided',
         '',
         '---',
         ''
@@ -145,8 +145,7 @@ def clean_exam_questions(input_file):
             cleaned_lines.append('')
             cleaned_lines.append('**T** / **F**')
             cleaned_lines.append('')
-            cleaned_lines.append('**Justification:**')
-            cleaned_lines.append('___________________________________________________________________________')
+            cleaned_lines.append('---')
             cleaned_lines.append('')
             
         elif question_type == 'multiple_choice_question':
@@ -154,13 +153,15 @@ def clean_exam_questions(input_file):
             cleaned_lines.append(f"**{question_counter}. {question_text}**")
             cleaned_lines.append('')
             
-            # Add answer choices
+            # Add answer choices - each on independent line
             for i, answer in enumerate(question.get('answers', [])):
                 choice_letter = chr(ord('a') + i)
-                cleaned_lines.append(f"{choice_letter}) {answer['answer_text']}")
+                cleaned_lines.append(f"**{choice_letter})** {answer['answer_text']}")
+                cleaned_lines.append('')
             
-            cleaned_lines.append('')
             cleaned_lines.append('**Answer:** _______')
+            cleaned_lines.append('')
+            cleaned_lines.append('---')
             cleaned_lines.append('')
             
         elif question_type == 'essay_question':
@@ -171,6 +172,8 @@ def clean_exam_questions(input_file):
             for _ in range(10):  # More lines for essay questions
                 cleaned_lines.append('___________________________________________________________________________')
                 cleaned_lines.append('')
+            cleaned_lines.append('---')
+            cleaned_lines.append('')
     
     # Clean up multiple consecutive empty lines
     result = []

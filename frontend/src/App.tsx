@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -8,254 +8,503 @@ interface Course {
   course_code: string;
 }
 
-interface UploadProgress {
-  status: 'idle' | 'uploading' | 'success' | 'error';
-  message: string;
-  progress: number;
+interface Student {
+  id: number;
+  name: string;
+  email: string;
+  sis_user_id: string;
 }
 
+interface Assignment {
+  id: number;
+  name: string;
+  points_possible: number;
+  due_at: string;
+  submission_types: string[];
+}
+
+interface Message {
+  id: string;
+  type: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+const API_BASE_URL = 'http://localhost:8000';
+
 function App() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'connection' | 'upload'>('connection');
+  
+  // Connection tab state
+  const [canvasUrl, setCanvasUrl] = useState('');
+  const [canvasToken, setCanvasToken] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connected' | 'testing'>('disconnected');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseFilter, setCourseFilter] = useState('');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  
+  // Upload tab state
   const [file, setFile] = useState<File | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
-  const [timeLimit, setTimeLimit] = useState<number>(30);
-  const [published, setPublished] = useState<boolean>(false);
-  const [coursePrefix, setCoursePrefix] = useState<string>('');
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
-    status: 'idle',
-    message: '',
-    progress: 0
-  });
-  const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
+  const [quizDescription, setQuizDescription] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  
+  // Chatbot state
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      type: 'assistant',
+      content: 'Hello! I\'m your AI assistant. I can help you with Canvas operations, quiz creation, and answer questions about your courses.',
+      timestamp: new Date()
+    }
+  ]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch courses on component mount
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    scrollToBottom();
+  }, [messages]);
 
-  const fetchCourses = async (prefix?: string) => {
-    setLoadingCourses(true);
-    try {
-      const params = prefix ? { course_prefix: prefix } : {};
-      const response = await axios.get('http://localhost:8000/courses', { params });
-      setCourses(response.data);
-    } catch (error) {
-      console.error('Failed to fetch courses:', error);
-      setUploadProgress({
-        status: 'error',
-        message: 'Failed to fetch courses. Make sure the backend is running.',
-        progress: 0
-      });
-    } finally {
-      setLoadingCourses(false);
-    }
-  };
-
-  const handleCourseFilter = () => {
-    fetchCourses(coursePrefix || undefined);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0] || null;
-    setFile(selectedFile);
-    if (selectedFile && !quizTitle) {
-      // Auto-generate quiz title from filename
-      const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
-      setQuizTitle(nameWithoutExt.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file || !selectedCourse || !quizTitle.trim()) {
-      setUploadProgress({
-        status: 'error',
-        message: 'Please select a course, enter a quiz title, and choose a file.',
-        progress: 0
-      });
+  const testConnection = async () => {
+    if (!canvasUrl || !canvasToken) {
+      alert('Please enter both Canvas URL and API token');
       return;
     }
 
-    setUploadProgress({ status: 'uploading', message: 'Uploading quiz...', progress: 25 });
+    setConnectionStatus('testing');
+    try {
+      const response = await axios.get(`${API_BASE_URL}/test-api`, {
+        params: { canvas_url: canvasUrl, canvas_token: canvasToken }
+      });
+      
+      if (response.data.success) {
+        setConnectionStatus('connected');
+        loadCourses();
+      } else {
+        setConnectionStatus('disconnected');
+        alert('Connection failed: ' + response.data.message);
+      }
+    } catch (error) {
+      setConnectionStatus('disconnected');
+      alert('Connection failed: ' + (error as Error).message);
+    }
+  };
+
+  const loadCourses = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/courses`, {
+        params: { 
+          canvas_url: canvasUrl, 
+          canvas_token: canvasToken,
+          prefix_filter: courseFilter || undefined
+        }
+      });
+      setCourses(response.data);
+    } catch (error) {
+      console.error('Failed to load courses:', error);
+    }
+  };
+
+  const selectCourse = async (course: Course) => {
+    setSelectedCourse(course);
+    
+    // Load students and assignments for the selected course
+    try {
+      const [studentsResponse, assignmentsResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/courses/${course.id}/students`, {
+          params: { canvas_url: canvasUrl, canvas_token: canvasToken }
+        }),
+        axios.get(`${API_BASE_URL}/courses/${course.id}/assignments`, {
+          params: { canvas_url: canvasUrl, canvas_token: canvasToken }
+        })
+      ]);
+      
+      setStudents(studentsResponse.data);
+      setAssignments(assignmentsResponse.data);
+    } catch (error) {
+      console.error('Failed to load course data:', error);
+    }
+  };
+
+  const downloadStudents = async () => {
+    if (!selectedCourse) return;
+    
+    try {
+      const response = await axios.get(`${API_BASE_URL}/courses/${selectedCourse.id}/students/export`, {
+        params: { canvas_url: canvasUrl, canvas_token: canvasToken },
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${selectedCourse.course_code}_students.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Failed to download students:', error);
+    }
+  };
+
+  const downloadAssignments = async () => {
+    if (!selectedCourse) return;
+    
+    try {
+      const response = await axios.get(`${API_BASE_URL}/courses/${selectedCourse.id}/assignments/export`, {
+        params: { canvas_url: canvasUrl, canvas_token: canvasToken },
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${selectedCourse.course_code}_assignments.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Failed to download assignments:', error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!inputMessage.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: inputMessage.trim(),
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsTyping(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('course_id', selectedCourse);
-      formData.append('quiz_title', quizTitle);
-      formData.append('time_limit', timeLimit.toString());
-      formData.append('published', published.toString());
+      // Call the actual LLM backend
+      const response = await axios.post(`${API_BASE_URL}/chat/completions`, {
+        messages: [
+          {
+            role: 'user',
+            content: userMessage.content
+          }
+        ],
+        model: 'gpt-3.5-turbo',
+        max_tokens: 500,
+        temperature: 0.7
+      });
 
-      setUploadProgress({ status: 'uploading', message: 'Processing questions...', progress: 50 });
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: response.data.choices[0].message.content,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsTyping(false);
+    } catch (error: any) {
+      setIsTyping(false);
+      console.error('Failed to send message:', error);
+      
+      // Show error message to user
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'assistant',
+        content: `Sorry, I encountered an error: ${error.response?.data?.detail || error.message || 'Unknown error'}. Please make sure your OpenAI API key is configured or try using a local Ollama model.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
 
-      const response = await axios.post('http://localhost:8000/upload-quiz', formData, {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
+
+  const uploadQuiz = async () => {
+    if (!file || !selectedCourse || !quizTitle) {
+      alert('Please select a file, course, and enter a quiz title');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadStatus('Uploading quiz...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('course_id', selectedCourse.id.toString());
+    formData.append('quiz_title', quizTitle);
+    formData.append('quiz_description', quizDescription);
+    formData.append('canvas_url', canvasUrl);
+    formData.append('canvas_token', canvasToken);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/upload-quiz`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      setUploadProgress({ status: 'uploading', message: 'Finalizing quiz...', progress: 75 });
-
-      setTimeout(() => {
-        setUploadProgress({
-          status: 'success',
-          message: `Quiz "${response.data.quiz_title}" created successfully! ${response.data.successful_uploads}/${response.data.total_questions} questions uploaded.`,
-          progress: 100
-        });
-      }, 500);
-
-    } catch (error: any) {
-      console.error('Quiz upload error:', error);
-      console.error('Error response:', error.response);
-      console.error('Error data:', error.response?.data);
-      
-      const errorMessage = error.response?.data?.detail || 'Failed to upload quiz. Please try again.';
-      setUploadProgress({
-        status: 'error',
-        message: errorMessage,
-        progress: 0
-      });
+      if (response.data.success) {
+        setUploadStatus('Quiz uploaded successfully!');
+        setFile(null);
+        setQuizTitle('');
+        setQuizDescription('');
+      } else {
+        setUploadStatus('Upload failed: ' + response.data.message);
+      }
+    } catch (error) {
+      setUploadStatus('Upload failed: ' + (error as Error).message);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const resetForm = () => {
-    setFile(null);
-    setQuizTitle('');
-    setTimeLimit(30);
-    setPublished(false);
-    setUploadProgress({ status: 'idle', message: '', progress: 0 });
-  };
+  const renderConnectionTab = () => (
+    <div className="tab-content">
+      <div className="connection-grid">
+        {/* Canvas Setup */}
+        <div className="connection-section">
+          <h3>Canvas Setup</h3>
+          <div className="form-group">
+            <label>Canvas URL</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="https://your-institution.instructure.com"
+              value={canvasUrl}
+              onChange={(e) => setCanvasUrl(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label>API Token</label>
+            <input
+              type="password"
+              className="input"
+              placeholder="Your Canvas API token"
+              value={canvasToken}
+              onChange={(e) => setCanvasToken(e.target.value)}
+            />
+          </div>
+          <button className="button button-primary" onClick={testConnection}>
+            Test Connection
+          </button>
+          <div className="status-indicator-container" style={{ marginTop: '16px' }}>
+            <span className={`status-indicator ${connectionStatus}`}>
+              <span className="status-dot"></span>
+              {connectionStatus === 'connected' && 'Connected'}
+              {connectionStatus === 'disconnected' && 'Disconnected'}
+              {connectionStatus === 'testing' && 'Testing...'}
+            </span>
+          </div>
+        </div>
+
+        {/* Course Search */}
+        <div className="connection-section">
+          <h3>Course Search</h3>
+          <div className="form-group">
+            <label>Filter Courses</label>
+            <div className="course-filter">
+              <input
+                type="text"
+                className="input"
+                placeholder="Enter course prefix (e.g., CS, MATH)"
+                value={courseFilter}
+                onChange={(e) => setCourseFilter(e.target.value)}
+              />
+              <button className="button" onClick={loadCourses}>
+                Search
+              </button>
+            </div>
+          </div>
+          {courses.length > 0 && (
+            <div className="course-list">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className={`course-item ${selectedCourse?.id === course.id ? 'selected' : ''}`}
+                  onClick={() => selectCourse(course)}
+                >
+                  <div className="course-name">{course.name}</div>
+                  <div className="course-code">{course.course_code}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Download Functions */}
+        {selectedCourse && (
+          <div className="connection-section">
+            <h3>Download Data</h3>
+            <p>Selected Course: <strong>{selectedCourse.name}</strong></p>
+            <div className="download-actions">
+              <button className="download-button" onClick={downloadStudents}>
+                📥 Download Students ({students.length})
+              </button>
+              <button className="download-button" onClick={downloadAssignments}>
+                📋 Download Assignments ({assignments.length})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* AI Chatbot */}
+        <div className="chatbot-container">
+          <div className="chatbot-header">
+            🤖 AI Assistant
+          </div>
+          <div className="chatbot-messages">
+            {messages.map((message) => (
+              <div key={message.id} className={`message ${message.type}`}>
+                <div className="message-avatar">
+                  {message.type === 'user' ? 'U' : 'AI'}
+                </div>
+                <div className="message-content">
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="message assistant">
+                <div className="message-avatar">AI</div>
+                <div className="message-content">Typing...</div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="chatbot-input">
+            <input
+              type="text"
+              placeholder="Ask me anything about Canvas or your courses..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              disabled={isTyping}
+            />
+            <button
+              className="send-button"
+              onClick={sendMessage}
+              disabled={isTyping || !inputMessage.trim()}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderUploadTab = () => (
+    <div className="tab-content">
+      <div className="form-section">
+        <h2>Upload Quiz to Canvas</h2>
+        
+        {!selectedCourse && (
+          <div className="alert alert-warning">
+            Please select a course in the Connection tab first.
+          </div>
+        )}
+
+        <div className="form-grid">
+          <div className="form-group">
+            <label htmlFor="quiz-title">Quiz Title *</label>
+            <input
+              id="quiz-title"
+              type="text"
+              className="input"
+              placeholder="Enter quiz title"
+              value={quizTitle}
+              onChange={(e) => setQuizTitle(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="quiz-file">Quiz File *</label>
+            <input
+              id="quiz-file"
+              type="file"
+              className="input"
+              accept=".md,.txt"
+              onChange={handleFileChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="quiz-description">Quiz Description</label>
+          <textarea
+            id="quiz-description"
+            className="input"
+            rows={4}
+            placeholder="Enter quiz description (optional)"
+            value={quizDescription}
+            onChange={(e) => setQuizDescription(e.target.value)}
+          />
+        </div>
+
+        {selectedCourse && (
+          <div className="selected-course">
+            <strong>Selected Course:</strong> {selectedCourse.name} ({selectedCourse.course_code})
+          </div>
+        )}
+
+        <button
+          className="button button-primary"
+          onClick={uploadQuiz}
+          disabled={isUploading || !file || !quizTitle || !selectedCourse}
+        >
+          {isUploading ? 'Uploading...' : 'Upload Quiz'}
+        </button>
+
+        {uploadStatus && (
+          <div className={`status-message ${uploadStatus.includes('success') ? 'success' : 'error'}`}>
+            {uploadStatus}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="app">
       <div className="container">
-        <header className="header">
-          <h1>📚 Instructor Assistant</h1>
-          <p>Upload quiz questions to Canvas with ease</p>
-        </header>
-
-        <div className="form-section">
-          <h2>🎯 Select Course</h2>
-          <div className="course-filter">
-            <input
-              type="text"
-              placeholder="Filter courses by prefix (e.g., SP25, CMPE)"
-              value={coursePrefix}
-              onChange={(e) => setCoursePrefix(e.target.value)}
-              className="input"
-            />
-            <button onClick={handleCourseFilter} className="btn btn-secondary" disabled={loadingCourses}>
-              {loadingCourses ? 'Loading...' : 'Filter'}
-            </button>
-          </div>
-          
-          <select
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            className="select"
-            disabled={loadingCourses}
-          >
-            <option value="">Select a course...</option>
-            {courses.map((course) => (
-              <option key={course.id} value={course.id.toString()}>
-                {course.course_code} - {course.name}
-              </option>
-            ))}
-          </select>
+        <div className="header">
+          <h1>Instructor Assistant AI</h1>
+          <p>Manage your Canvas courses and upload quizzes with AI assistance</p>
         </div>
 
-        <div className="form-section">
-          <h2>📝 Quiz Configuration</h2>
-          <div className="form-grid">
-            <div className="form-group">
-              <label htmlFor="quizTitle">Quiz Title</label>
-              <input
-                id="quizTitle"
-                type="text"
-                placeholder="Enter quiz title"
-                value={quizTitle}
-                onChange={(e) => setQuizTitle(e.target.value)}
-                className="input"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="timeLimit">Time Limit (minutes)</label>
-              <input
-                id="timeLimit"
-                type="number"
-                min="1"
-                max="300"
-                value={timeLimit}
-                onChange={(e) => setTimeLimit(parseInt(e.target.value) || 30)}
-                className="input"
-              />
-            </div>
-          </div>
-          
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={published}
-                onChange={(e) => setPublished(e.target.checked)}
-              />
-              <span className="checkmark"></span>
-              Publish quiz immediately
-            </label>
-          </div>
-        </div>
-
-        <div className="form-section">
-          <h2>📄 Upload Questions</h2>
-          <div className="file-upload">
-            <input
-              type="file"
-              accept=".md,.txt"
-              onChange={handleFileChange}
-              className="file-input"
-              id="file-upload"
-            />
-            <label htmlFor="file-upload" className="file-label">
-              {file ? `📎 ${file.name}` : '📁 Choose markdown or text file'}
-            </label>
-          </div>
-          {file && (
-            <div className="file-info">
-              <p>File: {file.name} ({(file.size / 1024).toFixed(1)} KB)</p>
-            </div>
-          )}
-        </div>
-
-        {uploadProgress.status !== 'idle' && (
-          <div className="progress-section">
-            <div className={`progress-bar ${uploadProgress.status}`}>
-              <div 
-                className="progress-fill" 
-                style={{ width: `${uploadProgress.progress}%` }}
-              ></div>
-            </div>
-            <p className={`status-message ${uploadProgress.status}`}>
-              {uploadProgress.message}
-            </p>
-          </div>
-        )}
-
-        <div className="actions">
+        <div className="tab-navigation">
           <button
-            onClick={handleUpload}
-            disabled={!file || !selectedCourse || !quizTitle.trim() || uploadProgress.status === 'uploading'}
-            className="btn btn-primary"
+            className={`tab-button ${activeTab === 'connection' ? 'active' : ''}`}
+            onClick={() => setActiveTab('connection')}
           >
-            {uploadProgress.status === 'uploading' ? '⏳ Uploading...' : '🚀 Upload Quiz'}
+            🔗 Connection & AI
           </button>
-          
-          {uploadProgress.status === 'success' && (
-            <button onClick={resetForm} className="btn btn-secondary">
-              📝 Create Another Quiz
-            </button>
-          )}
+          <button
+            className={`tab-button ${activeTab === 'upload' ? 'active' : ''}`}
+            onClick={() => setActiveTab('upload')}
+          >
+            📤 Upload Quiz
+          </button>
         </div>
+
+        {activeTab === 'connection' && renderConnectionTab()}
+        {activeTab === 'upload' && renderUploadTab()}
       </div>
     </div>
   );

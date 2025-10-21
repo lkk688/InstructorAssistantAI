@@ -1,11 +1,38 @@
 """
-Math equation converter for Canvas LMS compatibility.
+Math equation converter and markdown formatter for Canvas LMS compatibility.
 
 This module provides functions to convert LaTeX math equations from various formats
 to Canvas-compatible MathJax format using \( \) for inline and $$ $$ for block equations.
+It also handles markdown formatting conversion to HTML for proper display in Canvas.
 """
 
 import re
+
+
+def convert_markdown_to_html(text):
+    """
+    Convert basic markdown formatting to HTML for Canvas compatibility.
+    
+    Args:
+        text (str): Text containing markdown formatting
+        
+    Returns:
+        str: Text with markdown converted to HTML
+    """
+    if not text:
+        return text
+    
+    # Convert **bold** to <strong>bold</strong>
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    
+    # Convert *italic* to <em>italic</em> (but avoid conflicting with math)
+    # Only convert single * if it's not part of math equations
+    text = re.sub(r'(?<!\$)\*([^*$]+?)\*(?!\$)', r'<em>\1</em>', text)
+    
+    # Convert `code` to <code>code</code>
+    text = re.sub(r'`([^`]+?)`', r'<code>\1</code>', text)
+    
+    return text
 
 
 def convert_math_to_canvas(text, use_block_format=False):
@@ -69,31 +96,40 @@ def convert_math_in_answer_text(answer_text: str, use_block_format=False) -> str
 
 def process_question_with_math(question_dict: dict) -> dict:
     """
-    Process a question dictionary and convert all math equations to Canvas format.
+    Process a question dictionary and convert all math equations to Canvas format
+    and convert markdown formatting to HTML.
     
     Args:
-        question_dict: Dictionary containing question data with potential math equations
+        question_dict: Dictionary containing question data with potential math equations and markdown
         
     Returns:
-        Updated question dictionary with Canvas-compatible math format
+        Updated question dictionary with Canvas-compatible math format and HTML formatting
     """
     # Create a copy to avoid modifying the original
     processed_question = question_dict.copy()
     
     # Convert math in question text
     if 'question_text' in processed_question:
+        # First convert markdown to HTML, then convert math
+        processed_question['question_text'] = convert_markdown_to_html(
+            processed_question['question_text']
+        )
         processed_question['question_text'] = convert_math_in_question_text(
             processed_question['question_text']
         )
     
-    # Convert math in answers if they exist
+    # Convert math and markdown in answers if they exist
     if 'answers' in processed_question and processed_question['answers']:
         processed_answers = []
         for answer in processed_question['answers']:
             if isinstance(answer, dict) and 'answer_text' in answer:
                 processed_answer = answer.copy()
-                processed_answer['answer_text'] = convert_math_in_answer_text(
+                # First convert markdown to HTML, then convert math
+                processed_answer['answer_text'] = convert_markdown_to_html(
                     answer['answer_text']
+                )
+                processed_answer['answer_text'] = convert_math_in_answer_text(
+                    processed_answer['answer_text']
                 )
                 processed_answers.append(processed_answer)
             else:
@@ -125,7 +161,7 @@ def batch_convert_questions(questions_list: list) -> list:
 
 # Example usage and test cases
 if __name__ == "__main__":
-    # Test the conversion functions
+    # Test cases for math conversion
     test_cases = [
         "The matrix $P^2_{rect}$ contains both intrinsic and extrinsic parameters.",
         "The coordinate terms $(x_{offset}, y_{offset}, h, w)$ represent offsets.",
@@ -133,29 +169,47 @@ if __name__ == "__main__":
         "Regular text without math equations should remain unchanged.",
         "Multiple equations: $x^2 + y^2 = r^2$ and $E = mc^2$ in one sentence."
     ]
-    
+
     print("Testing math conversion to Canvas format:")
     print("=" * 60)
-    
+
     for i, test_text in enumerate(test_cases, 1):
         print(f"\nTest {i}:")
         print(f"Original: {test_text}")
         print(f"Canvas:   {convert_math_to_canvas(test_text)}")
     
-    # Test question processing
+    # Test cases for markdown conversion
+    markdown_test_cases = [
+        "This is **bold text** and this is *italic text*.",
+        "The **softmax** function is used in neural networks.",
+        "Use `code` formatting for inline code.",
+        "Mixed: **bold** with $math$ and *italic* text.",
+        "**Multiple** **bold** words in one sentence."
+    ]
+    
+    print("\n" + "=" * 60)
+    print("Testing markdown to HTML conversion:")
+    
+    for i, test_text in enumerate(markdown_test_cases, 1):
+        print(f"\nMarkdown Test {i}:")
+        print(f"Original: {test_text}")
+        print(f"HTML:     {convert_markdown_to_html(test_text)}")
+
     print("\n" + "=" * 60)
     print("Testing question processing:")
-    
+
     sample_question = {
         'question_type': 'true_false_question',
-        'question_text': 'The matrix $P^2_{rect}$ contains both intrinsic and extrinsic parameters.',
+        'question_text': 'The **matrix** $P^2_{rect}$ contains both intrinsic and extrinsic parameters.',
         'points_possible': 2,
         'answers': [
-            {'answer_text': 'True', 'answer_weight': 100},
-            {'answer_text': 'False', 'answer_weight': 0}
+            {'answer_text': '**True**', 'answer_weight': 100},
+            {'answer_text': '**False**', 'answer_weight': 0}
         ]
     }
-    
+
     processed = process_question_with_math(sample_question)
     print(f"\nOriginal question text: {sample_question['question_text']}")
     print(f"Processed question text: {processed['question_text']}")
+    print(f"Original answer 1: {sample_question['answers'][0]['answer_text']}")
+    print(f"Processed answer 1: {processed['answers'][0]['answer_text']}")
