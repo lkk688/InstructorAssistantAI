@@ -579,16 +579,34 @@ def upload_quiz_from_file(questions_file, quiz_title=None, course_id=None, time_
         }
         
         for q_type, type_questions in questions_by_type.items():
-            if type_questions:  # Only create group if there are questions of this type
-                group_name = group_name_mapping[q_type]
-                question_count = len(type_questions)
-                points_per_question = section_metadata.get(q_type, 1)  # Default to 1 if not found
-                group = create_quiz_question_group(quiz_id, group_name, question_count, points_per_question, target_course_id)
-                if group:
-                    question_groups[q_type] = group['id']
-                    print(f"Created group '{group_name}' with {len(type_questions)} questions ({points_per_question} points each)")
-                else:
-                    print(f"Warning: Failed to create group for {q_type}")
+            if not type_questions:
+                continue
+
+            group_name = group_name_mapping[q_type]
+            question_count = len(type_questions)
+
+            points_per_question = section_metadata.get(q_type)
+            if points_per_question is None:
+                unique_points = {q.get('points_possible', 1) for q in type_questions}
+                if len(unique_points) == 1:
+                    points_per_question = unique_points.pop()
+
+            if points_per_question is None:
+                print(f"Skipping question group for {group_name} because questions use mixed point values.")
+                continue
+
+            group = create_quiz_question_group(
+                quiz_id,
+                group_name,
+                question_count,
+                points_per_question,
+                target_course_id
+            )
+            if group:
+                question_groups[q_type] = group['id']
+                print(f"Created group '{group_name}' with {len(type_questions)} questions ({points_per_question} points each)")
+            else:
+                print(f"Warning: Failed to create group for {q_type}")
 
         # Step 4: Upload questions
         successful_uploads = 0
