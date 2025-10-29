@@ -85,7 +85,7 @@ async def upload_quiz(
     """
     try:
         # Validate file type
-        if not file.filename or not (file.filename.endswith('.md') or file.filename.endswith('.txt')):
+        if not file.filename or not file.filename.lower().endswith(('.md', '.txt')):
             raise HTTPException(status_code=400, detail="Only .md and .txt files are supported")
         
         # Save uploaded file temporarily

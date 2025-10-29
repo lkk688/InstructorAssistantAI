@@ -1,0 +1,30 @@
+QUESTION 1 (2pt)
+Q: What is the primary goal of data mining?
+a) To collect raw data
+b) To discover patterns and knowledge from data
+c) To clean and store data only
+d) To replace data warehouses
+Correct Answer: b
+
+QUESTION 2 (2pt)
+Q: Which of the following algorithms is commonly used for classification tasks in data mining?
+a) Apriori
+b) K-means
+c) Support Vector Machine
+d) DBSCAN
+Correct Answer: c
+
+QUESTION 3 (1pt)
+Q: Type: true_false
+Is data preprocessing an optional step in most data mining projects?
+Answer: False
+
+QUESTION 4 (3pt)
+Q: Type: short_answer
+Name one technique used for dimensionality reduction in data mining.
+Answer: Principal Component Analysis (PCA)
+
+QUESTION 5 (4pt)
+Q: Type: essay
+Explain the difference between supervised and unsupervised learning in data mining.
+Answer: In supervised learning, models are trained using labeled data with known outcomes, while unsupervised learning seeks patterns or groupings in unlabeled data without predefined targets.

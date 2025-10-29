@@ -14,8 +14,21 @@ interface UploadProgress {
   progress: number;
 }
 
+const chooseDefaultCourse = (courseList: Course[]) => {
+  if (!courseList.length) {
+    return '';
+  }
+
+  const cmpeCourse = courseList.find((course) =>
+    course.course_code?.toUpperCase().includes('CMPE')
+  );
+
+  return (cmpeCourse ?? courseList[0]).id.toString();
+};
+
 function App() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
@@ -39,7 +52,19 @@ function App() {
     try {
       const params = prefix ? { course_prefix: prefix } : {};
       const response = await axios.get('http://localhost:8000/courses', { params });
-      setCourses(response.data);
+      const sanitized = (response.data as Course[]).filter((course) => {
+        const name = course.name?.trim().toLowerCase();
+        const code = course.course_code?.trim().toLowerCase();
+        const isUnnamed = !course.name || name === 'unnamed course';
+        const isCodeNA = !course.course_code || code === 'n/a';
+        return !(isUnnamed && isCodeNA);
+      });
+
+      setAllCourses(sanitized);
+      setCourses(sanitized);
+      if (!selectedCourse || !sanitized.some(course => course.id.toString() === selectedCourse)) {
+        setSelectedCourse(chooseDefaultCourse(sanitized));
+      }
     } catch (error) {
       console.error('Failed to fetch courses:', error);
       setUploadProgress({
@@ -53,7 +78,24 @@ function App() {
   };
 
   const handleCourseFilter = () => {
-    fetchCourses(coursePrefix || undefined);
+    if (!coursePrefix.trim()) {
+      setCourses(allCourses);
+      return;
+    }
+
+    const normalizedPrefix = coursePrefix.trim().toUpperCase();
+    const filtered = allCourses.filter((course) => {
+      const code = course.course_code?.toUpperCase() ?? '';
+      const name = course.name?.toUpperCase() ?? '';
+      return code.includes(normalizedPrefix) || name.includes(normalizedPrefix);
+    });
+
+    setCourses(filtered);
+    if (!filtered.length) {
+      setSelectedCourse('');
+    } else if (!filtered.some(course => course.id.toString() === selectedCourse)) {
+      setSelectedCourse(chooseDefaultCourse(filtered));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +168,21 @@ function App() {
     setUploadProgress({ status: 'idle', message: '', progress: 0 });
   };
 
+  const formatCourseLabel = (course: Course) => {
+    const code = course.course_code?.trim();
+    const name = course.name?.trim();
+
+    if (!code || code.toUpperCase() === 'N/A') {
+      return name || `Course ${course.id}`;
+    }
+
+    if (!name || code === name) {
+      return code;
+    }
+
+    return `${code} - ${name}`;
+  };
+
   return (
     <div className="app">
       <div className="container">
@@ -158,7 +215,7 @@ function App() {
             <option value="">Select a course...</option>
             {courses.map((course) => (
               <option key={course.id} value={course.id.toString()}>
-                {course.course_code} - {course.name}
+                {formatCourseLabel(course)}
               </option>
             ))}
           </select>

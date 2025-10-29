@@ -251,112 +251,151 @@ def parse_questions_markdown(filename):
 
 
 def parse_questions(filename):
-    """
-    Parse questions from a text file supporting multiple question types:
-    
-    Multiple Choice:
-    Q: Question text
-    A) Answer option A
-    B) Answer option B
-    C) Answer option C
-    D) Answer option D
-    Answer: A
-    
-    True/False:
-    Q: Question text
-    Type: true_false
-    Answer: True
-    
-    Short Answer/Essay:
-    Q: Question text
-    Type: short_answer
-    Answer: Sample answer (optional)
-    
-    Essay:
-    Q: Question text
-    Type: essay
-    Answer: Sample answer (optional)
-    """
-    with open(filename, 'r') as f:
+    """Parse numbered exam-style text files into Canvas question payloads."""
+
+    with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
+    blocks = re.split(r'(?=QUESTION\s+\d+)', content, flags=re.IGNORECASE)
     questions = []
-    raw_questions = re.split(r'\n\s*\n', content.strip())
-    
-    for block in raw_questions:
-        lines = [line.strip() for line in block.strip().split('\n') if line.strip()]
+
+    option_pattern = re.compile(r'^([A-Za-z])\)\s*(.+)$')
+    truthy = {'true', 't', '1', 'yes', 'y'}
+
+    for raw_block in blocks:
+        block = raw_block.strip()
+        if not block:
+            continue
+
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
         if not lines:
             continue
-            
-        question_text = lines[0].split("Q:")[1].strip()
-        
-        # Check if question type is specified
-        question_type = "multiple_choice_question"  # default
-        type_line = None
-        answer_line = None
-        
-        for i, line in enumerate(lines[1:], 1):
-            if line.startswith("Type:"):
-                type_spec = line.split("Type:")[1].strip().lower()
-                if type_spec == "true_false":
-                    question_type = "true_false_question"
-                elif type_spec == "short_answer":
-                    question_type = "short_answer_question"
-                elif type_spec == "essay":
-                    question_type = "essay_question"
-                type_line = i
-            elif line.startswith("Answer:"):
-                answer_line = i
+
+        header = lines[0]
+        points = 1
+        match_points = re.search(r'\((\d+)pt\)', header, flags=re.IGNORECASE)
+        if match_points:
+            try:
+                points = int(match_points.group(1))
+            except ValueError:
+                points = 1
+
+        question_line_index = None
+        for idx, line in enumerate(lines):
+            if line.lower().startswith('q:'):
+                question_line_index = idx
                 break
-        
+
+        if question_line_index is None:
+            continue
+
+        question_line = lines[question_line_index]
+        question_text_fragment = question_line.split(':', 1)[1].strip()
+
+        question_type = 'multiple_choice_question'
+        question_text_lines = []
+
+        if question_text_fragment.lower().startswith('type:'):
+            inline_type = question_text_fragment.split(':', 1)[1].strip().lower()
+            if inline_type == 'true_false':
+                question_type = 'true_false_question'
+            elif inline_type == 'short_answer':
+                question_type = 'short_answer_question'
+            elif inline_type == 'essay':
+                question_type = 'essay_question'
+        else:
+            question_text_lines.append(question_text_fragment)
+
+        answer_line_content = None
+        options = []
+
+        for line in lines[question_line_index + 1:]:
+            lower = line.lower()
+
+            if lower.startswith('type:'):
+                type_spec = line.split(':', 1)[1].strip().lower()
+                if type_spec == 'true_false':
+                    question_type = 'true_false_question'
+                elif type_spec == 'short_answer':
+                    question_type = 'short_answer_question'
+                elif type_spec == 'essay':
+                    question_type = 'essay_question'
+                continue
+
+            option_match = option_pattern.match(line)
+            if option_match:
+                options.append((option_match.group(1).upper(), option_match.group(2).strip()))
+                continue
+
+            if lower.startswith('answer:') or lower.startswith('correct answer:'):
+                answer_line_content = line
+                continue
+
+            question_text_lines.append(line)
+
+        question_text = ' '.join(question_text_lines).strip()
+        if not question_text and question_text_fragment and not question_text_fragment.lower().startswith('type:'):
+            question_text = question_text_fragment
+
         question_obj = {
-            "question_text": question_text,
-            "question_type": question_type
+            'question_text': question_text,
+            'question_type': question_type,
+            'points_possible': points
         }
-        
-        if question_type == "multiple_choice_question":
-            # Parse multiple choice answers
-            answer_lines = []
-            for line in lines[1:]:
-                if line.startswith("Answer:"):
-                    break
-                if re.match(r'^[A-Z]\)', line):
-                    answer_lines.append(line)
-            
-            correct_answer = lines[-1].split("Answer:")[1].strip()
-            correct_index = ord(correct_answer.upper()) - ord('A')
-            
-            answer_objs = []
-            for i, ans in enumerate(answer_lines):
-                answer_text = ans[2:].strip()  # Remove "A)", "B)", etc.
-                answer_objs.append({
-                    "answer_text": answer_text,
-                    "weight": 100 if i == correct_index else 0
-                })
-            
-            question_obj["answers"] = answer_objs
-            
-        elif question_type == "true_false_question":
-            # Parse true/false answer
-            correct_answer = lines[-1].split("Answer:")[1].strip().lower()
-            is_true = correct_answer in ['true', 't', '1', 'yes']
-            
-            question_obj["answers"] = [
-                {"answer_text": "True", "weight": 100 if is_true else 0},
-                {"answer_text": "False", "weight": 0 if is_true else 100}
+
+        if question_type == 'multiple_choice_question':
+            if not options:
+                continue
+
+            correct_letter = None
+            correct_text = None
+
+            if answer_line_content:
+                answer_value = answer_line_content.split(':', 1)[1].strip()
+                if len(answer_value) == 1 and answer_value.upper() in [letter for letter, _ in options]:
+                    correct_letter = answer_value.upper()
+                else:
+                    letter_match = re.match(r'^([A-Za-z])', answer_value)
+                    if letter_match and letter_match.group(1).upper() in [letter for letter, _ in options]:
+                        correct_letter = letter_match.group(1).upper()
+                    else:
+                        correct_text = answer_value.lower()
+
+            if correct_letter is None and correct_text:
+                for letter, text in options:
+                    if text.lower() == correct_text:
+                        correct_letter = letter
+                        break
+
+            if correct_letter is None:
+                correct_letter = options[0][0]
+
+            question_obj['answers'] = [
+                {
+                    'answer_text': text,
+                    'weight': 100 if letter == correct_letter else 0
+                }
+                for letter, text in options
             ]
-            
-        elif question_type in ["short_answer_question", "essay_question"]:
-            # For short answer and essay, we can optionally store a sample answer
-            if answer_line:
-                sample_answer = lines[answer_line].split("Answer:")[1].strip()
-                question_obj["sample_answer"] = sample_answer
-        
+
+        elif question_type == 'true_false_question':
+            answer_value = ''
+            if answer_line_content:
+                answer_value = answer_line_content.split(':', 1)[1].strip().lower()
+
+            is_true = answer_value in truthy
+            question_obj['answers'] = [
+                {'answer_text': 'True', 'weight': 100 if is_true else 0},
+                {'answer_text': 'False', 'weight': 0 if is_true else 100}
+            ]
+
+        elif question_type in ['short_answer_question', 'essay_question']:
+            if answer_line_content:
+                question_obj['sample_answer'] = answer_line_content.split(':', 1)[1].strip()
+
         questions.append(question_obj)
-    
-    # Convert math equations to Canvas format before returning
+
     questions = batch_convert_questions(questions)
-    
     return questions
 
 

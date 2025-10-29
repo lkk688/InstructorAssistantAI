@@ -432,13 +432,23 @@ def create_quiz_question_group(quiz_id, group_name, question_count, points_per_q
         response.raise_for_status()
         
         result = response.json()
-        if 'quiz_groups' in result and len(result['quiz_groups']) > 0:
-            group = result['quiz_groups'][0]
-            print(f"Created question group: {group['name']} (ID: {group['id']})")
-            return group
+
+        if isinstance(result, list):
+            # Some Canvas responses return a list of quiz groups
+            group_candidates = result
+        elif isinstance(result, dict) and 'quiz_groups' in result:
+            group_candidates = result['quiz_groups']
         else:
-            print(f"Failed to create question group: {group_name}")
+            print(f"Unexpected question group response: {result}")
             return None
+
+        if group_candidates:
+            group = group_candidates[0]
+            if isinstance(group, dict):
+                print(f"Created question group: {group.get('name')} (ID: {group.get('id')})")
+                return group
+        print(f"Failed to create question group: {group_name}")
+        return None
             
     except requests.exceptions.RequestException as e:
         print(f"Error creating question group '{group_name}': {e}")
@@ -469,25 +479,53 @@ def upload_quiz_from_file(questions_file, quiz_title=None, course_id=None, time_
         
         # Step 1: Create the quiz
         quiz_payload = {
-            'quiz': {
-                'title': title,
-                'published': published,
-                'quiz_type': 'assignment',
-                'time_limit': time_limit,
-                'shuffle_answers': True
-            }
+            'quiz[title]': title,
+            'quiz[published]': 'true' if published else 'false',
+            'quiz[quiz_type]': 'assignment',
+            'quiz[time_limit]': str(time_limit),
+            'quiz[shuffle_answers]': 'true'
         }
 
         print(f"Creating quiz: {title}")
-        response = requests.post(f'{API_URL}/courses/{target_course_id}/quizzes', headers=headers, json=quiz_payload)
+        response = requests.post(
+            f'{API_URL}/courses/{target_course_id}/quizzes',
+            headers=headers,
+            data=quiz_payload
+        )
         
-        if response.status_code != 200:
+        if response.status_code not in (200, 201):
             print(f"Failed to create quiz. Status code: {response.status_code}")
             print(f"Response: {response.text}")
             return None
             
         quiz = response.json()
-        quiz_id = quiz['id']
+
+        # Canvas may wrap the quiz object or return unexpected structures; normalize here
+        if isinstance(quiz, dict) and 'quiz' in quiz and isinstance(quiz['quiz'], dict):
+            quiz_data = quiz['quiz']
+        elif isinstance(quiz, dict):
+            quiz_data = quiz
+        elif isinstance(quiz, list):
+            quiz_data = next((item for item in quiz if isinstance(item, dict) and item.get('title') == title), None)
+            if quiz_data is None:
+                print(f"Unexpected quiz creation response: {quiz}")
+                return None
+        else:
+            print(f"Unexpected quiz creation response type: {type(quiz)} - {quiz}")
+            return None
+
+        if not isinstance(quiz_data, dict):
+            print(f"Unexpected quiz creation payload: {quiz_data}")
+            return None
+
+        if quiz_data.get('title') != title:
+            print(f"Quiz creation did not return the requested title '{title}'. Raw response: {quiz}")
+            return None
+
+        quiz_id = quiz_data.get('id')
+        if not quiz_id:
+            print(f"Quiz ID missing in response: {quiz_data}")
+            return None
         print(f"Created quiz with ID: {quiz_id}")
 
         # Step 2: Parse questions from file
@@ -577,8 +615,8 @@ def upload_quiz_from_file(questions_file, quiz_title=None, course_id=None, time_
                     # Create default answers based on question type
                     if q['question_type'] == 'true_false_question':
                         question_data['answers'] = [
-                            {'answer_text': 'True', 'answer_weight': 100},
-                            {'answer_text': 'False', 'answer_weight': 0}
+                            {'answer_text': 'True', 'weight': 100},
+                            {'answer_text': 'False', 'weight': 0}
                         ]
                     elif q['question_type'] == 'multiple_choice_question':
                         # For multiple choice without predefined answers, make it a short answer instead
@@ -602,7 +640,7 @@ def upload_quiz_from_file(questions_file, quiz_title=None, course_id=None, time_
                 json=question_payload
             )
             
-            if r.status_code == 200:
+            if r.status_code in (200, 201):
                 successful_uploads += 1
                 question_type_display = q['question_type'].replace('_', ' ').title()
                 print(f"✓ Uploaded question {i}/{len(questions)} ({question_type_display})")
